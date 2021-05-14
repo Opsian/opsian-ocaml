@@ -1,0 +1,4 @@
+(library
+ (name lib_opsian)
+ (libraries core))
+
