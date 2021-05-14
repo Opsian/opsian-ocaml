@@ -1,0 +1,51 @@
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+.vscode
+
+# ocamlbuild working directory
+_build/
+
+# ocamlbuild targets
+*.byte
+*.native
+
+# oasis generated files
+setup.data
+setup.log
+
+# Merlin configuring file for Vim and Emacs
+.merlin
+
+# Dune generated files
+*.install
+
+# Local OPAM switch
+_opam/
+
+.idea
+*.swp
+
+# Dependencies
+lib/deps/boost/
+lib/deps/openssl/
+lib/deps/protobuf/
+
+# generated code
+lib/data.pb.cc
+lib/data.pb.h
+lib/protoc
+lib/globals.cpp
+Makefile
+
+# output
+*debug.log
+
+env
+

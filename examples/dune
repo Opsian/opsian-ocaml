@@ -1,0 +1,4 @@
+(executable
+ (name opsian_examples)
+ (libraries threads lib-opsian unix)
+ (modes exe))

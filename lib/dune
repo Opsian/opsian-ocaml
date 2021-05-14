@@ -1,0 +1,102 @@
+
+(include_subdirs unqualified)
+
+(data_only_dirs deps)
+
+(rule
+ (deps (source_tree deps))
+ (mode (promote (until-clean)))
+ (targets
+  libprotobuf.a
+  libboost_chrono.a
+  libboost_date_time.a
+  libboost_system.a
+  libboost_thread.a
+  libcrypto.a
+  libssl.a
+  protoc
+  libbacktrace.a)
+ (action
+  (no-infer
+   (progn
+    (chdir deps/libbacktrace (progn
+         (run ./configure)
+         (run make)))
+    (chdir deps (run ./download_and_build.sh))
+    (copy deps/protobuf/lib/libprotobuf.a libprotobuf.a)
+    (copy deps/boost/lib/libboost_chrono.a libboost_chrono.a)
+    (copy deps/boost/lib/libboost_date_time.a libboost_date_time.a)
+    (copy deps/boost/lib/libboost_system.a libboost_system.a)
+    (copy deps/boost/lib/libboost_thread.a libboost_thread.a)
+    (copy deps/openssl/lib/libcrypto.a libcrypto.a)
+    (copy deps/openssl/lib/libssl.a libssl.a)
+    (copy deps/protobuf/bin/protoc protoc)
+    (copy deps/libbacktrace/.libs/libbacktrace.a libbacktrace.a)))))
+
+(rule
+ (deps protoc (file data.proto))
+ (mode (promote (until-clean)))
+ (targets data.pb.cc data.pb.h)
+ (action
+  (no-infer
+   (run ./protoc --cpp_out=. data.proto))))
+
+(rule
+ (deps (file add_hashes.sh) (file globals.cpp.in) (file version))
+ (targets globals.cpp)
+ (action
+  (no-infer
+   (progn
+    (run ./add_hashes.sh)))))
+
+(library
+ (name lib_opsian)
+ (public_name lib-opsian)
+ (modules lib_opsian)
+ (library_flags -linkall)
+ (foreign_stubs
+  (language c)
+  (names linkable_profiler))
+ (foreign_stubs
+  (language cxx)
+  ; We refence an extra dep here, even though dune will pick it up at the linking step, so that the header files are downloaded
+  (extra_deps libssl.a)
+  (names
+    circular_queue
+    collector_controller
+    concurrent_map
+    cpudata_reader
+    data.pb
+    debug_logger
+    globals
+    lib_opsian
+    log_writer
+    metrics
+    network
+    profiler
+    processor
+    protocol_handler
+    signal_handler)
+  (flags
+    -Ideps/protobuf/include
+    -Ideps/openssl/include
+    -Ideps/boost/include
+    -fPIC
+    -isystem deps/boost/include
+    -pthread
+    -Wall
+    -Wformat-security
+    -Wno-char-subscripts
+    -Wno-sign-compare
+    -Wno-strict-overflow
+    -Wwrite-strings
+    -funsigned-char
+    -std=c++0x
+    -g))
+ (foreign_archives protobuf boost_chrono boost_date_time boost_system boost_thread ssl crypto backtrace)
+ (c_library_flags (
+    -lunwind
+    -lpthread
+    -ldl
+    -lrt
+    -lstdc++)))

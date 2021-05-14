@@ -1,0 +1,3 @@
+[submodule "lib/deps/libbacktrace"]
+	path = lib/deps/libbacktrace
+	url = git@github.com:ianlancetaylor/libbacktrace.git
