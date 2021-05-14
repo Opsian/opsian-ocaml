@@ -1,4 +1,7 @@
 (library
  (name lib_opsian)
- (libraries core))
+ (modules lib_opsian)
+ (library_flags -linkall)
+ (foreign_stubs (language c) (names lib_opsian))
+ (c_library_flags (-lunwind)))
 
