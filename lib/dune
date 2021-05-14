@@ -2,6 +2,8 @@
  (name lib_opsian)
  (modules lib_opsian)
  (library_flags -linkall)
- (foreign_stubs (language c) (names lib_opsian))
+ (foreign_stubs
+  (language c)
+  (names lib_opsian another_c_file))
  (c_library_flags (-lunwind)))
 
