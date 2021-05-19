@@ -29,3 +29,8 @@ setup.log
 _opam/
 
 .idea
+
+# generated code
+lib/gen/*.cc
+lib/gen/*.h
+Makefile

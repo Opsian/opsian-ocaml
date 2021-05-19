@@ -1,0 +1,77 @@
+// BEGIN AGENT MESSAGES
+
+message AgentEnvelope {
+    oneof downstream_message_type {
+        Hello hello = 4;
+        StackSample stack_sample = 5;
+        Heartbeat heartbeat = 8;
+        MethodInformation method_information = 9;
+        ModuleInformation module_information = 10;
+        ThreadInformation thread_information = 11;
+        AllocationTable allocation_table = 12;
+        SymbolInformation symbol_information = 13;
+        AgentStatistics agent_statistics = 14;
+        Notification notification = 15;
+        MetricInformation metric_information = 16;
+        MetricSamples metric_samples = 17;
+        ConstantMetricsComplete constant_metrics_complete = 18;
+    }
+}
+
+message Hello {
+    string api_key = 3;
+    int32 process_id = 4;
+    Context context = 9;
+}
+
+enum NotificationCategory {
+  USER_WARNING = 0;
+  USER_ERROR = 1;
+  INFO_LOGGING = 2;
+}
+
+message Notification {
+    string payload = 1;
+    NotificationCategory category = 2;
+}
+
+// END AGENT MESSAGES
+
+// BEGIN COLLECTOR MESSAGES
+
+message CollectorEnvelope {
+    oneof upstream_message_type {
+        Terminate terminate = 1;
+        SampleRate sample_rate = 2;
+        Heartbeat heartbeat = 6;
+    }
+}
+
+// Sent to disconnect/stop the agent from profiling
+message Terminate {}
+
+message SampleRate {
+    uint64 process_time_stack_sample_rate_millis = 1;
+    uint64 elapsed_time_stack_sample_rate_millis = 2;
+    // Switches active profiling on or off
+    bool switch_process_time_profiling_on = 3;
+    bool switch_elapsed_time_profiling_on = 4;
+    bool thread_state_on = 5;
+
+    bool switch_memory_profiling_on = 6;
+    uint64 memory_profiling_push_rate_millis = 7;
+    
+    bool switch_memory_profiling_stacktrace_on = 8;
+    uint32 memory_profiling_stack_sample_rate_samples = 9;
+
+    bool switch_metrics_on = 10;
+    uint64 metrics_sample_rate_millis = 11;
+    repeated string metrics_prefixes = 12;
+}
+
+message Heartbeat {
+    uint64 time = 1;
+}
+// END COLLECTOR MESSAGES
+
+

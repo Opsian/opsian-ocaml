@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cat common.proto network.proto > data.proto
+protoc --cpp_out=../lib/gen/ data.proto
+rm data.proto

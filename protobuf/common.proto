@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+option java_package = "com.skycrane.westprof.common.protobuf";
+option java_outer_classname = "WestProfProto";
+
+package data;
+
+message Context {
+    string agent_id = 2;
+    string host_name = 3;
+    string jvm_version = 4;
+    string application_version = 5;
+    uint32 agent_version = 6;
+    AgentType agent_type = 7;
+
+    // Counts the number of hardware threads available, or docker cpu limits.
+    // NB: returns the same as Runtime.availableProcessors() on Java, so < 9 isn't cgroup aware
+    uint32 hardware_thread_count = 8;
+    string agent_git_string = 9;
+    string build_type = 10;
+    // only used on the server-side
+    int64 id = 11;
+
+    // may not be an olson name, depends on how kind glibc is
+    string timezone_name = 12;
+    // seconds east of UTC
+    int64 timezone_offset_seconds = 13;
+}
+
+message StackSample {
+    SampleTimeType type = 1;
+    uint64 sample_rate_millis = 2;
+    repeated FrameEntry frames = 3;
+    uint64 time_epoch_millis = 4;
+    int32 thread_id = 5;
+    string thread_name = 6;
+    // Only Agent missing this field should be old Java agents that max at 196 frames
+    bool has_max_frames = 7;
+    int32 error_code = 8;
+    repeated CompressedFrameEntry compressedFrames = 9;
+    int32 thread_state = 10;
+    int32 wallclockScanId = 11;
+    uint64 original_time_epoch_millis = 12;
+    uint64 symbol = 13;
+}
+
+message FrameEntry {
+    string module = 1; // FQCN in Java
+    uint32 line = 2;
+    string method = 3;
+    string filename = 4;
+}
+
+message CompressedFrameEntry {
+    int64 methodId = 1;
+    uint32 line = 2;
+}
+
+message MethodInformation {
+    int64 methodId = 1;
+    int64 moduleId = 2;
+    string methodName = 3;
+}
+
+message ModuleInformation {
+    int64 moduleId = 1;
+    string moduleName = 2;
+    string filename = 3;
+}
+
+message ThreadInformation {
+    int32 thread_id = 1;
+    string thread_name = 2;
+}
+
+message SymbolInformation {
+    uint64 symbol = 1;
+    string name = 2;
+}
+
+enum MetricVariability {
+  UNKNOWN_VARIABILITY = 0;
+  CONSTANT =  1;
+  VARIABLE = 2;
+  COUNTER = 3;
+}
+
+enum MetricDataType {
+  UNKNOWN_TYPE = 0;
+  STRING = 1;
+  LONG = 2;
+}
+
+enum MetricUnit {
+  UNKNOWN_UNIT = 0;
+  NONE = 1;
+  BYTES = 2;
+  TICKS = 3;
+  EVENTS = 4;
+  UNIT_STRING = 5;
+  HERTZ = 6;
+  MILLISECONDS = 7;
+  NANOSECONDS = 8;
+}
+
+message MetricInformation {
+  uint32 metricId = 1;
+  string name = 2;
+  MetricVariability variability = 3;
+  MetricDataType dataType = 4;
+  MetricUnit unit = 5;
+}
+
+message MetricSamples {
+  uint64 time_epoch_millis = 1;
+  repeated MetricSample samples = 2;
+}
+
+message MetricSample {
+  uint32 metricId = 1;
+  oneof value {
+    int64 longValue = 2;
+    string stringValue = 3;
+  }
+}
+
+message AllocationTable {
+    uint64 time_epoch_millis = 1;
+    repeated AllocationRow rows = 2;
+}
+
+message AgentStatistics {
+    uint32 allocation_enqueue_failures = 1;
+    uint32 cputime_enqueue_failures = 2;
+    uint32 wallclock_enqueue_failures = 3;
+    uint32 thread_id_denials = 4;
+    uint32 hs_perf_errors = 5;
+    uint32 hs_perf_warnings = 6;
+    uint32 cpu_metric_errors = 7;
+    uint32 cpu_metric_warnings = 8;
+    uint32 metric_enqueue_failures = 9;
+    uint32 allocation_stack_trace_enqueue_failures = 10;
+}
+
+message AllocationRow {
+    uint64 symbol = 1;
+    uint32 number_of_allocations = 2;
+    uint64 total_bytes_allocated = 3;
+    bool outside_tlab = 4;
+}
+
+message ConstantMetricsComplete {
+}
+
+enum SampleTimeType {
+    ELAPSED_TIME = 0;
+    PROCESS_TIME = 1;
+    ALLOCATION = 2;
+};
+
+enum AgentType {
+    UNKNOWN = 0;
+    PYTHON = 1;
+    RUBY = 2;
+    JAVA = 3;
+    CSHARP = 4;
+    NODE = 5;
+    OCAML = 6;
+    HASKELL = 7;
+    GO = 8;
+}
+

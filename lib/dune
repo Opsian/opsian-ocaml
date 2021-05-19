@@ -1,9 +1,26 @@
+
+(include_subdirs unqualified)
+
 (library
  (name lib_opsian)
  (modules lib_opsian)
  (library_flags -linkall)
  (foreign_stubs
-  (language c)
-  (names lib_opsian another_c_file))
+  (language cxx)
+  (names lib_opsian data.pb)
+  (flags
+    -I%{env:THIRD_PARTY=no}/protobuf/include
+    -I%{env:THIRD_PARTY=no}/openssl/include
+    -fPIC
+    -Wall
+    -Wformat-security
+    -Wno-char-subscripts
+    -Wno-sign-compare
+    -Wno-strict-overflow
+    -Wwrite-strings
+    -Wnon-virtual-dtor
+    -Woverloaded-virtual
+    -funsigned-char
+    -pthread))
  (c_library_flags (-lunwind)))
 

@@ -1,10 +1,9 @@
 #include <stdio.h>
-#include "another_c_file.h"
+
+extern "C" void start_opsian_native();
 
 void start_opsian_native() {
   printf("Hello world, native!\n");
   // TODO: call into native agent here
-
-  foo();
 }
 
