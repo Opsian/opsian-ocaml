@@ -7,10 +7,27 @@
  (library_flags -linkall)
  (foreign_stubs
   (language cxx)
-  (names lib_opsian data.pb)
+  (names
+    circular_queue
+    collector_controller
+    concurrent_map
+    cpudata_reader
+    data.pb
+    debug_logger
+    globals
+    lib_opsian
+    log_writer
+    metrics
+    network
+    processor
+    profiler
+    protocol_handler
+    signal_handler
+    terminator)
   (flags
     -I%{env:THIRD_PARTY=no}/protobuf/include
     -I%{env:THIRD_PARTY=no}/openssl/include
+    -I%{env:THIRD_PARTY=no}/boost/include
     -fPIC
     -Wall
     -Wformat-security
@@ -18,9 +35,6 @@
     -Wno-sign-compare
     -Wno-strict-overflow
     -Wwrite-strings
-    -Wnon-virtual-dtor
-    -Woverloaded-virtual
     -funsigned-char
     -pthread))
  (c_library_flags (-lunwind)))
-
