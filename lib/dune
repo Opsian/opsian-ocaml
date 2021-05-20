@@ -18,6 +18,14 @@
    (copy deps/libcrypto.a libcrypto.a)
    (copy deps/libssl.a libssl.a)))))
 
+   (rule
+    (deps (file add_hashes.sh) (file globals.cpp.in))
+    (targets globals.cpp)
+    (action
+     (no-infer
+      (progn
+        (run ./add_hashes.sh)))))
+
 (library
  (name lib_opsian)
  (modules lib_opsian)

@@ -33,4 +33,9 @@ _opam/
 # generated code
 lib/gen/*.cc
 lib/gen/*.h
+lib/globals.cpp
 Makefile
+
+# outpu
+debug.log
+

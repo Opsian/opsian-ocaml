@@ -135,8 +135,6 @@ void stop_opsian_native() {
 }
 
 // TODO:
-// * add in thread creation code in order to start the agent
-// * get metrics back to a server
 // * get debug information into globals.cpp
 // * integrate sadiq's profiler prototype - CollectorController::onSampleRate
 // * hook thread start / stop events call prof->onThreadStart() / prof->onThreadEnd()
