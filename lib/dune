@@ -19,7 +19,7 @@
    (copy deps/libssl.a libssl.a)))))
 
    (rule
-    (deps (file add_hashes.sh) (file globals.cpp.in))
+    (deps (file add_hashes.sh) (file globals.cpp.in) (file version))
     (targets globals.cpp)
     (action
      (no-infer

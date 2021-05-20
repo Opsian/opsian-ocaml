@@ -64,11 +64,11 @@ const std::string CERTIFICATE_2 = "-----BEGIN CERTIFICATE-----\n"
 "-----END CERTIFICATE-----";
 const std::string ON_PREM_HOST_DEFAULT = "N";
 
-const std::string AGENT_VERSION_STR = "1";
+const std::string AGENT_VERSION_STR = "@AGENT_VERSION@";
 uint32_t AGENT_VERSION;
 // Specified in this format so it can be easily read out of the binary using
-// strings libopsian.so | grep 'AGENT_VERSION_IS'
-const char* STRINGS_AGENT_VERSION_STR  __attribute__((used)) = "AGENT_VERSION_IS_1";
+// strings foo.exe | grep 'OPSIAN_VERSION_IS'
+const char* STRINGS_AGENT_VERSION_STR  __attribute__((used)) = "OPSIAN_VERSION_IS_@AGENT_VERSION@";
 
 std::ostream* ERROR_FILE = &std::cerr;
 DebugLogger* _DEBUG_LOGGER = NULL;
