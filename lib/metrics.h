@@ -25,6 +25,7 @@ public:
     : terminator_(terminator),
       debugLogger_(debugLogger),
       queue_(queue),
+      thread(),
       threadRunning(false),
       mustSendDurationMetric(false),
       enabled_(false),
@@ -54,6 +55,7 @@ private:
     Terminator& terminator_;
     DebugLogger& debugLogger_;
     CircularQueue& queue_;
+    pthread_t thread;
     std::atomic_bool threadRunning;
     std::atomic_bool mustSendDurationMetric;
     bool enabled_;

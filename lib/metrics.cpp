@@ -18,9 +18,8 @@ static const MetricInformation DURATION_INFO{
     MetricUnit::MILLISECONDS // TODO: make this nanoseconds
 };
 
-void callbackToRunMetrics(void* arg) {
-
-    //Avoid having the metrics thread also receive the PROF signals
+void* callbackToRunMetrics(void* arg) {
+    // Avoid having the metrics thread also receive the PROF signals
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGPROF);
@@ -31,15 +30,18 @@ void callbackToRunMetrics(void* arg) {
 
     Metrics* metrics = (Metrics*) arg;
     metrics->run();
+    return nullptr;
 }
 
 void Metrics::startThread() {
-
     debugLogger_ << "Starting metrics thread" << endl;
     terminator_.start();
     threadRunning.store(true);
 
-    // TODO: start thread with pthread
+    int result = pthread_create(&thread, nullptr, &callbackToRunMetrics, this);
+    if (result) {
+        logError("ERROR: failed to start processor thread %d\n", result);
+    }
 }
 
 // Called on processor thread - don't enqueue
