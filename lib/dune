@@ -1,6 +1,23 @@
 
 (include_subdirs unqualified)
 
+(data_only_dirs deps)
+
+(rule
+ (deps (source_tree deps))
+ (targets libprotobuf.a libboost_atomic.a libboost_chrono.a libboost_date_time.a libboost_system.a libboost_thread.a libcrypto.a libssl.a)
+ (action
+ (no-infer
+  (progn
+   (copy deps/libprotobuf.a libprotobuf.a)
+   (copy deps/libboost_atomic.a libboost_atomic.a)
+   (copy deps/libboost_chrono.a libboost_chrono.a)
+   (copy deps/libboost_date_time.a libboost_date_time.a)
+   (copy deps/libboost_system.a libboost_system.a)
+   (copy deps/libboost_thread.a libboost_thread.a)
+   (copy deps/libcrypto.a libcrypto.a)
+   (copy deps/libssl.a libssl.a)))))
+
 (library
  (name lib_opsian)
  (modules lib_opsian)
@@ -28,6 +45,8 @@
     -I%{env:THIRD_PARTY=no}/protobuf/include
     -I%{env:THIRD_PARTY=no}/openssl/include
     -I%{env:THIRD_PARTY=no}/boost/include
+    -isystem %{env:THIRD_PARTY=no}/boost/include
+    -pthread
     -fPIC
     -Wall
     -Wformat-security
@@ -36,5 +55,11 @@
     -Wno-strict-overflow
     -Wwrite-strings
     -funsigned-char
-    -pthread))
- (c_library_flags (-lunwind)))
+    -std=c++0x))
+ (foreign_archives protobuf boost_atomic boost_chrono boost_date_time boost_system boost_thread ssl crypto)
+ (c_library_flags (
+    -lunwind
+    -lpthread
+    -ldl
+    -lrt
+    -lstdc++)))

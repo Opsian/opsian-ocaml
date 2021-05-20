@@ -143,8 +143,6 @@ struct ConfigurationOptions {
 
 void bootstrapHandle(int signum, siginfo_t* info, void* context);
 
-void recordAllocationStacktrace(void* context, VMSymbol* symbol);
-
 // Way to generate time, not guaranteed to be thread safe.
 // Cannot use C++11 std::put_time
 void putFormattedTime(std::ostream &ostream);

@@ -19,7 +19,7 @@ const std::string AGENT_VERSION_STR = "16";
 uint32_t AGENT_VERSION;
 // Specified in this format so it can be easily read out of the binary using
 // strings libopsian.so | grep 'AGENT_VERSION_IS'
-const char* STRINGS_AGENT_VERSION_STR  __attribute__((used)) = "AGENT_VERSION_IS_16";
+const char* STRINGS_AGENT_VERSION_STR  __attribute__((used)) = "TODO"; // Eg: AGENT_VERSION_IS_16
 
 std::ostream* ERROR_FILE = &std::cerr;
 DebugLogger* _DEBUG_LOGGER = NULL;

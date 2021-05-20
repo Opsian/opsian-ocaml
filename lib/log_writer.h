@@ -103,8 +103,6 @@ public:
     // override
     virtual void recordConstantMetricsComplete();
 
-    virtual ~LogWriter();
-
 private:
     ZeroCopyOutputStream* output_;
 
