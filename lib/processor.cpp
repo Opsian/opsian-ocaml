@@ -45,7 +45,7 @@ void Processor::run() {
     // no shared data access after this point, can be safely deleted
 }
 
-void callbackToRunProcessor(void *arg) {
+void* callbackToRunProcessor(void *arg) {
     //Avoid having the processor thread also receive the PROF signals
     sigset_t mask;
     sigemptyset(&mask);
@@ -57,6 +57,7 @@ void callbackToRunProcessor(void *arg) {
 
     Processor *processor = (Processor *) arg;
     processor->run();
+    return nullptr;
 }
 
 void Processor::start() {
@@ -64,7 +65,10 @@ void Processor::start() {
     terminator_.start();
     threadRunning.store(true);
 
-    // TODO: start thread with callbackToRunProcessor
+    int result = pthread_create(&thread, nullptr, &callbackToRunProcessor, this);
+    if (result) {
+        logError("ERROR: failed to start processor thread %d\n", result);
+    }
 }
 
 void Processor::stop() {

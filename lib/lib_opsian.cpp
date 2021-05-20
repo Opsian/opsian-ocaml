@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "globals.h"
 #include "profiler.h"
+#include <execinfo.h>
+#include <signal.h>
 
 extern "C" void start_opsian_native();
 
@@ -68,8 +70,21 @@ void parseArguments(char *options, ConfigurationOptions &configuration) {
     }
 }
 
+void crashHandler(int sig) {
+    const int MAX_BT_SIZE = 20;
+    void *array[MAX_BT_SIZE];
+    size_t size;
+
+    size = backtrace(array, MAX_BT_SIZE);
+
+    // print out all the frames to stderr
+    fprintf(stderr, "Error: signal %d:\n", sig);
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    exit(1);
+}
+
 void start_opsian_native() {
-    printf("Hello world, native!\n");
+    signal(SIGSEGV, crashHandler);
 
     std::istringstream(AGENT_VERSION_STR) >> AGENT_VERSION;
 
@@ -78,6 +93,8 @@ void start_opsian_native() {
         printf("Please set the environment variable 'OPSIAN_OPTS' in order to use Opsian\n");
         return;
     }
+
+    printf("Starting Opsian with: %s!\n", options);
 
     CONFIGURATION = new ConfigurationOptions();
     parseArguments(options, *CONFIGURATION);
@@ -102,7 +119,6 @@ void bootstrapHandle(int signum, siginfo_t *info, void *context) {
     prof->handle(signum, context, nullptr);
 }
 
-// TODO: Hook the process shutdown
 void stop_opsian_native() {
     // Needs to be called to block inflight hooks from being run.
     Profiler::shutdown();
@@ -118,6 +134,10 @@ void stop_opsian_native() {
     pthread_mutex_unlock(&threadLock);
 }
 
-// Ideally:
-// (1) hook thread start / stop events call prof->onThreadStart() / prof->onThreadEnd()
-// (2)
+// TODO:
+// * add in thread creation code in order to start the agent
+// * get metrics back to a server
+// * get debug information into globals.cpp
+// * integrate sadiq's profiler prototype - CollectorController::onSampleRate
+// * hook thread start / stop events call prof->onThreadStart() / prof->onThreadEnd()
+// * hook stopping the environment

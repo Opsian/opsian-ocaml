@@ -1,3 +1,4 @@
 let () =
-  print_endline "Which example program do you want to run?";;
+  print_endline "Starting sleep example";;
+  Unix.sleep(30);;
 

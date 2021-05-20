@@ -45,7 +45,7 @@
     -I%{env:THIRD_PARTY=no}/protobuf/include
     -I%{env:THIRD_PARTY=no}/openssl/include
     -I%{env:THIRD_PARTY=no}/boost/include
-    -isystem %{env:THIRD_PARTY=no}/boost/include
+    -isystem %{env:THIRD_PARTY=no}/boost/include ; Do we need this?
     -pthread
     -fPIC
     -Wall
@@ -55,7 +55,8 @@
     -Wno-strict-overflow
     -Wwrite-strings
     -funsigned-char
-    -std=c++0x))
+    -std=c++0x
+    -g))
  (foreign_archives protobuf boost_atomic boost_chrono boost_date_time boost_system boost_thread ssl crypto)
  (c_library_flags (
     -lunwind

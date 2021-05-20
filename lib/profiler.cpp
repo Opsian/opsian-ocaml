@@ -62,8 +62,8 @@ bool Profiler::start() {
         return true;
     }
 
-    handler_->SetAction(SIGPROF, SIGALRM, &bootstrapHandle);
-    handler_->SetAction(SIGALRM, SIGPROF, &bootstrapHandle);
+//    handler_->SetAction(SIGPROF, SIGALRM, &bootstrapHandle);
+//    handler_->SetAction(SIGALRM, SIGPROF, &bootstrapHandle);
 
 //    MemoryProfiler::init(libjvm, handler_, buffer);
 

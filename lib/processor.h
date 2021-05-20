@@ -18,7 +18,8 @@ public:
         CollectorController& collectorController,
         DebugLogger& debugLogger,
         Terminator& processorTerminator)
-        : logWriter_(logWriter),
+        : thread(),
+          logWriter_(logWriter),
           buffer_(buffer),
           threadRunning(false),
           network_(network),
@@ -36,6 +37,9 @@ public:
     bool isRunning() const;
 
 private:
+
+    pthread_t thread;
+
     LogWriter& logWriter_;
 
     CircularQueue& buffer_;

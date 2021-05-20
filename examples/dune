@@ -1,6 +1,6 @@
 ;; This declares the hello_world executable implemented by hello_world.ml
 (executable
  (name opsian_examples)
- (libraries lib_opsian)
+ (libraries lib_opsian unix)
  (modes exe))
 
