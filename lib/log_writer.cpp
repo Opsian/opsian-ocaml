@@ -11,6 +11,32 @@ using google::protobuf::util::SerializeDelimitedToZeroCopyStream;
 using std::copy;
 using data::SampleTimeType;
 
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#include <elfutils/libdwfl.h>
+
+char *debuginfo_path=NULL;
+
+Dwfl_Callbacks callbacks = {
+    .find_elf=dwfl_linux_proc_find_elf,
+    .find_debuginfo=dwfl_standard_find_debuginfo,
+    .debuginfo_path=&debuginfo_path,
+};
+
+Dwfl* dwfl;
+
+void LogWriter::initDwarf() {
+    dwfl = dwfl_begin(&callbacks);
+    int ret = dwfl_linux_proc_report(dwfl, getpid());
+    if (ret != 0) {
+        // TODO: error code here, report error over the wire
+    }
+    ret = dwfl_report_end(dwfl, NULL, NULL);
+    if (ret != 0) {
+        // TODO: error code here report error over the wire
+    }
+}
+
 void LogWriter::recordWithSize(data::AgentEnvelope& envelope) {
     if (output_ != nullptr) {
         if (!SerializeDelimitedToZeroCopyStream(envelope, output_))
@@ -30,10 +56,8 @@ void LogWriter::recordStackTrace(
         int signum,
         int threadState,
         int wallclockScanId,
-        VMSymbol *symbol) {
+        uint64_t time_tsc) {
     debugLogger_ << "start record" << endl;
-
-//    const bool isApplicationThread = trace.env_id != nullptr;
 
     data::StackSample* stackSample = frameAgentEnvelope_.mutable_stack_sample();
     setSampleType(signum, stackSample);
@@ -57,7 +81,30 @@ void LogWriter::recordStackTrace(
     const int32_t errorCode = 0; // TODO
     stackSample->set_error_code(errorCode);
     stackSample->set_wallclockscanid(wallclockScanId);
-    stackSample->set_symbol(reinterpret_cast<google::protobuf::uint64>(symbol));
+
+    // Lookup symbols for frames
+    CallFrame* frames = trace.frames;
+    if (trace.num_frames > 0) {
+        for (int frame_idx = 0; frame_idx < trace.num_frames; frame_idx++) {
+            Dwarf_Addr addr = (uintptr_t) frames[frame_idx];
+
+            Dwfl_Module* module = dwfl_addrmodule(dwfl, addr);
+            const char* function_name = dwfl_module_addrname(module, addr);
+
+            Dwfl_Line* line = dwfl_getsrc(dwfl, addr);
+
+            if (line != NULL) {
+                int nline;
+                Dwarf_Addr addr;
+                const char* filename = dwfl_lineinfo(line, &addr, &nline, NULL, NULL, NULL);
+                printf("%s (%s:%d)\n", function_name, filename, nline);
+            } else {
+                if (function_name != NULL) {
+                    printf("%s\n", function_name);
+                }
+            }
+        }
+    }
 
     /*if (!isError) {
         for (int i = 0; i < numFrames; i++) {
@@ -78,7 +125,7 @@ void LogWriter::recordStackTrace(
         }
     }
 
-     stackSample->set_has_max_frames(numFrames >= maxFramesToCapture_);*/
+    stackSample->set_has_max_frames(numFrames >= maxFramesToCapture_);*/
 
     recordWithSize(frameAgentEnvelope_);
 

@@ -40,7 +40,7 @@ public:
             int signum,
             int threadState,
             int wallclockScanId,
-            VMSymbol* symbol) = 0;
+            uint64_t time_tsc) = 0;
 
     virtual void
     recordThread(int threadId, const string& name) = 0;
@@ -68,7 +68,7 @@ enum ElementType {
     NOTIFICATION,
     METRIC_INFORMATION,
     METRIC_SAMPLES,
-    CONSTANT_METRICS_COMPLETE
+    CONSTANT_METRICS_COMPLETE,
 };
 
 struct Holder {
@@ -122,7 +122,6 @@ struct StackHolder {
         is_committed(UNCOMMITTED),
         elementType(STACK_TRACE),
 
-        symbol(nullptr),
         tspec(),
         wallclockScanId(0),
         trace(),
@@ -137,12 +136,12 @@ struct StackHolder {
     StackElementType elementType;
 
     // Stack Trace
-    VMSymbol* symbol;
     timespec tspec;
     int wallclockScanId;
     CallTrace trace;
     int signum;
     int threadState;
+    uint64_t time_tsc;
 
     // Thread
     int threadId;
@@ -179,7 +178,7 @@ public:
         }
     }
 
-    bool pushStackTrace(CallTrace item, int signum, int threadState, int wallclockScanId, VMSymbol *pSymbol);
+    bool pushStackTrace(CallTrace item, int signum, int threadState, int wallclockScanId, uint64_t time_tsc);
 
     bool pushThread(const char* name, int threadId);
 

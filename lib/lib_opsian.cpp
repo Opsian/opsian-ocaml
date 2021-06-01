@@ -116,7 +116,7 @@ void bootstrapHandle(int signum, siginfo_t *info, void *context) {
         return;
     }
 
-    prof->handle(signum, context, nullptr);
+    prof->handle(signum, context);
 }
 
 void stop_opsian_native() {

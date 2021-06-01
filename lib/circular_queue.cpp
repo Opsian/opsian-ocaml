@@ -14,7 +14,7 @@ bool CircularQueue::pushStackTrace(
         int signum,
         int threadState,
         int wallclockScanId,
-        VMSymbol* symbol) {
+        uint64_t time_tsc) {
 
     timespec ts;
     // Cannot use C++11 version as not supported in GCC 4.4
@@ -33,7 +33,7 @@ bool CircularQueue::pushStackTrace(
     holder.tspec.tv_nsec = ts.tv_nsec;
     holder.signum = signum;
     holder.threadState = threadState;
-    holder.symbol = symbol;
+    holder.time_tsc = time_tsc;
     stackQueue.commitWrite(holder);
 
     return true;
@@ -154,7 +154,13 @@ bool CircularQueue::pushConstantMetricsComplete() {
 
 // Unable to use memcpy inside the push method because its not async-safe
 void CircularQueue::write(const CallTrace& item, size_t slot, StackHolder& holder) {
-    // TODO: reimplement when integrating sadiq's code
+    CallFrame *fb = frame_buffer_[slot];
+    for (int frame_num = 0; frame_num < item.num_frames; ++frame_num) {
+        fb[frame_num] = item.frames[frame_num];
+    }
+
+    holder.trace.frames = fb;
+    holder.trace.num_frames = item.num_frames;
 }
 
 bool CircularQueue::pop(QueueListener& listener) {
@@ -208,15 +214,14 @@ bool CircularQueue::pop(QueueListener& listener) {
                     holder.signum,
                     holder.threadState,
                     holder.wallclockScanId,
-                    holder.symbol);
+                    holder.time_tsc);
 
                 // 0 out all frames so the next write is clean
                 CallFrame *fb = frame_buffer_[currentOutput];
-                int num_frames = 0;; // TODO: holder.trace.num_frames;
+                int num_frames = holder.trace.num_frames;
                 for (int frame_num = 0; frame_num < num_frames; ++frame_num) {
                     memset(&(fb[frame_num]), 0, sizeof(CallFrame));
                 }
-                holder.symbol = nullptr;
                 break;
             }
 

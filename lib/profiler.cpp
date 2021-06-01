@@ -1,6 +1,39 @@
 #include "profiler.h"
 
+#define TARGET_amd64
+#define CAML_INTERNALS
+#define _GNU_SOURCE
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include <string>
+#include <signal.h>
+#include <string.h>
+#include <sys/time.h>
+#include <ucontext.h>
+#include <unistd.h>
+
+#ifdef __x86_64
+/* Only for _rdstc */
+#include <x86intrin.h>
+#elif __aarch64__
+int64_t _rdtsc() {
+  int64_t virtual_timer_value;
+  asm volatile("mrs %0, cntvct_el0" : "=r"(virtual_timer_value));
+  return virtual_timer_value;
+}
+#endif
+
+#include "caml/backtrace.h"
+#include "caml/backtrace_prim.h"
+#include "caml/codefrag.h"
+#include "caml/misc.h"
+#include "caml/mlvalues.h"
+#include "caml/stack.h"
+
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
 
 const int PUSH_ATTEMPTS = 1000;
 
@@ -12,7 +45,10 @@ bool Profiler::validate(const pthread_t pthreadId) {
 }
 
 bool Profiler::isValidThread() {
-    const pthread_t pThreadId = pthread_self();
+    return true;
+
+    // TODO: re-enable this after we've hooked thread creation in ocaml
+    /*const pthread_t pThreadId = pthread_self();
     if (!validate(pThreadId)) {
         return false;
     }
@@ -22,7 +58,7 @@ bool Profiler::isValidThread() {
     }
 
     CollectorController::threadIdDenials++;
-    return false;
+    return false;*/
 }
 
 void Profiler::initThreadIdMap(ureg size) {
@@ -31,27 +67,121 @@ void Profiler::initThreadIdMap(ureg size) {
     }
 }
 
+Profiler::Profiler(
+    ConfigurationOptions *configuration,
+    pthread_mutex_t& threadLock)
+    :   wallclockScanId_(0),
+        configuration_(configuration),
+        processorTerminator(nullptr),
+        metricsTerminator(nullptr),
+        logFile(nullptr),
+        debugLogger_(nullptr),
+        network_(nullptr),
+        writer(nullptr),
+        buffer(nullptr),
+        processor(nullptr),
+        protocolHandler(nullptr),
+        collectorController(nullptr),
+        handler_(nullptr),
+        metrics(nullptr) {
+    configure(threadLock);
+    initThreadIdMap(131072);
+}
+
 void Profiler::shutdown() {
     shuttingDown.store(true, std::memory_order_release);
 }
 
-void Profiler::handle(int signum, void* context, VMSymbol* symbol) {
-    if (! (signum == SIGTRAP || signum == SIGPROF || signum == SIGALRM)) {
+void Profiler::handle(int signum, void* context) {
+    if (! (signum == SIGPROF || signum == SIGALRM)) {
         buffer->pushNotification(
                 data::NotificationCategory::USER_ERROR, "Signal number out of range: ", signum);
         return;
     }
 
-    // TODO: sadiq integration
+    printf("invoked!\n");
+
+    CallFrame frames[MAX_FRAMES];
+    int num_frames = 0;
+    int ret;
+    unw_context_t ucp;
+    unw_cursor_t cursor;
+    unw_word_t uw_ip, uw_sp;
+    uint64_t start_ts, stack_ts;
+
+    start_ts = _rdtsc();
+
+    ret = unw_getcontext(&ucp);
+
+    if (ret == -1) {
+        // TODO: Increment error stat here
+        printf("unw_getcontext failed\n");
+        return;
+    }
+
+    ret = unw_init_local(&cursor, &ucp);
+
+    if (ret < 0) {
+        // TODO: Increment error stat here. Use error codes from unw_init_local
+        printf("unw_init_local failed\n");
+        return;
+    }
+
+    // TODO: Get the return value from unw_step and increase the error codes
+    while (num_frames < MAX_FRAMES) {
+        ret = unw_step(&cursor);
+
+        if (ret <= 0) {
+            // Use error codes for this and log
+            break;
+        }
+
+        struct code_fragment* frag;
+
+        unw_get_reg(&cursor, UNW_REG_IP, &uw_ip);
+        unw_get_reg(&cursor, UNW_REG_SP, &uw_sp);
+
+        frames[num_frames] = (uint64_t) uw_ip;
+        num_frames += 1;
+
+        frag = caml_find_code_fragment_by_pc((char*) uw_ip);
+        if (frag != NULL) {
+            uint64_t pc;
+            char* sp;
+
+            // TODO: check with Sadiq whether he cares about: uint64_t ret_addr = *(((uint64_t*) uw_sp) + 1);
+
+            pc = (uint64_t) uw_ip;
+            sp = (char*) uw_sp;
+
+            while (num_frames < MAX_FRAMES) {
+                frame_descr* fd = caml_next_frame_descriptor(&pc, &sp);
+
+                if (fd == NULL) {
+                    break;
+                }
+
+                frames[num_frames] = pc;
+                num_frames += 1;
+            }
+
+            break;
+        }
+    }
+
+    stack_ts = _rdtsc();
+
+    // TODO: re-add when we use wallclock
     // const int wallclockScanId = wallclockScanId_.load(std::memory_order::memory_order_relaxed);
-    const bool enqueued = false; // buffer->pushStackTrace(trace, signum, threadState, wallclockScanId, symbol);
+    CallTrace trace;
+    trace.frames = frames;
+    trace.num_frames = num_frames;
+    const bool enqueued = buffer->pushStackTrace(trace, signum, 0, 0, stack_ts - start_ts);
     if (!enqueued) {
         if (signum == SIGPROF) {
             CircularQueue::cputimeFailures++;
-        } else if (signum == SIGALRM) {
-            CircularQueue::wallclockFailures++;
         } else {
-            CircularQueue::allocationStackTraceFailures++;
+            CircularQueue::wallclockFailures++;
         }
     }
 }
@@ -62,10 +192,8 @@ bool Profiler::start() {
         return true;
     }
 
-//    handler_->SetAction(SIGPROF, SIGALRM, &bootstrapHandle);
-//    handler_->SetAction(SIGALRM, SIGPROF, &bootstrapHandle);
-
-//    MemoryProfiler::init(libjvm, handler_, buffer);
+    handler_->SetAction(SIGPROF, SIGALRM, &bootstrapHandle);
+    handler_->SetAction(SIGALRM, SIGPROF, &bootstrapHandle);
 
     processor->start();
     metrics->startThread();
@@ -82,10 +210,6 @@ void Profiler::stop() {
     signal(SIGPROF, SIG_IGN);
     signal(SIGALRM, SIG_IGN);
 
-    // Do not use SIG_IGN for sig trap - SIG_IGN fails to handle the trap properly and will cause a crash.
-    // Any SIG_TRAP signals in flight are handled in MemoryProfiler::stop with the flag.
-
-//    MemoryProfiler::stop();
     handler_->stopSigprof();
     metrics->stopThread();
     processor->stop();

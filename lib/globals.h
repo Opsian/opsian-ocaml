@@ -22,9 +22,11 @@ int getTid();
 
 const int MAX_HEADER_SIZE = 5;
 
-// TODO: alter this to something useful when integrating sadiq's code
-typedef int CallFrame;
-typedef int CallTrace;
+typedef uint64_t CallFrame;
+typedef struct {
+    uint num_frames;
+    CallFrame* frames;
+} CallTrace;
 typedef uint64_t VMSymbol;
 
 class Profiler;
@@ -34,7 +36,7 @@ class DebugLogger;
 void logError(const char *__restrict format, ...);
 
 const int DEFAULT_SAMPLING_INTERVAL = 1;
-const int DEFAULT_MAX_FRAMES_TO_CAPTURE = 300;
+const int MAX_FRAMES = 256;
 
 extern const char* const GIT_HASH;
 extern const char* const GIT_TAGS;
@@ -108,7 +110,7 @@ struct ConfigurationOptions {
             logFilePath(""),
             host(DEFAULT_HOST),
             port(DEFAULT_PORT),
-            maxFramesToCapture(DEFAULT_MAX_FRAMES_TO_CAPTURE),
+            maxFramesToCapture(MAX_FRAMES),
             apiKey(""),
             agentId(""),
             debugLogPath(""),

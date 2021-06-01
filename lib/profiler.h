@@ -47,33 +47,13 @@ public:
 
     explicit Profiler(
         ConfigurationOptions *configuration,
-        pthread_mutex_t& threadLock)
-        : wallclockScanId_(0),
-          configuration_(configuration),
-          processorTerminator(nullptr),
-          metricsTerminator(nullptr),
-          logFile(nullptr),
-          debugLogger_(nullptr),
-          network_(nullptr),
-          writer(nullptr),
-          buffer(nullptr),
-          processor(nullptr),
-          protocolHandler(nullptr),
-          collectorController(nullptr),
-          handler_(nullptr),
-          metrics(nullptr) {
-
-        configure(threadLock);
-
-        // TODO: move this over to the collector controller when we're happy with initialisation.
-        initThreadIdMap(131072);
-    }
+        pthread_mutex_t& threadLock);
 
     bool start();
 
     void stop();
 
-    void handle(int signum, void *context, VMSymbol *symbol);
+    void handle(int signum, void *context);
 
     bool isRunning();
 

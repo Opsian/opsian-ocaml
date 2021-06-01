@@ -66,6 +66,8 @@ public:
               maxFramesToCapture_(maxFramesToCapture),
               logCorruption_(logCorruption) {
         GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+        initDwarf();
     }
 
     // override
@@ -76,7 +78,7 @@ public:
             int signum,
             int threadState,
             int wallclockScanId,
-            VMSymbol *symbol);
+            uint64_t time_tsc);
 
     // override
     virtual void recordThread(
@@ -128,6 +130,8 @@ private:
     bool logCorruption_;
 
     void recordWithSize(data::AgentEnvelope& envelope);
+
+    void initDwarf();
 
     /*void recordFrame(
         jint bci,
