@@ -135,7 +135,6 @@ void stop_opsian_native() {
 }
 
 // TODO:
-// * get debug information into globals.cpp
 // * integrate sadiq's profiler prototype - CollectorController::onSampleRate
 // * hook thread start / stop events call prof->onThreadStart() / prof->onThreadEnd()
 // * hook stopping the environment
