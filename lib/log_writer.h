@@ -17,6 +17,10 @@
 #include <boost/functional/hash.hpp>
 #include <boost/asio.hpp>
 
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#include <elfutils/libdwfl.h>
+
 using std::unordered_set;
 using std::unordered_map;
 using std::vector;
@@ -32,6 +36,11 @@ using asio::ip::tcp;
 struct ThreadInformation {
     int threadId;
     string name;
+};
+
+struct AddrInformation {
+    uintptr_t methodId;
+    int lineNumber;
 };
 
 struct AllocationRow {
@@ -59,6 +68,9 @@ public:
               network_(network),
               controller_(controller),
               threadIdToInformation(),
+              knownAddrToInformation_(),
+              knownMethods_(),
+              knownFiles_(),
               allocationsTable(),
               frameAgentEnvelope_(),
               nameAgentEnvelope_(),
@@ -113,6 +125,11 @@ private:
     CollectorController& controller_;
 
     unordered_map<int, ThreadInformation> threadIdToInformation;
+
+    // Symbol information cache
+    unordered_map<Dwarf_Addr, AddrInformation> knownAddrToInformation_;
+    unordered_set<uintptr_t> knownMethods_;
+    unordered_set<uintptr_t> knownFiles_;
 
     AllocationsTable allocationsTable;
 

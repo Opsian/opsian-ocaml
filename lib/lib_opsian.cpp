@@ -112,8 +112,6 @@ void start_opsian_native() {
 void bootstrapHandle(int signum, siginfo_t *info, void *context) {
     IMPLICITLY_USE(info)
 
-    printf("bootstrapHandle\n");
-
     if (!Profiler::isValidThread()) {
         return;
     }

@@ -11,10 +11,6 @@ using google::protobuf::util::SerializeDelimitedToZeroCopyStream;
 using std::copy;
 using data::SampleTimeType;
 
-#define UNW_LOCAL_ONLY
-#include <libunwind.h>
-#include <elfutils/libdwfl.h>
-
 char *debuginfo_path=NULL;
 
 Dwfl_Callbacks callbacks = {
@@ -63,69 +59,88 @@ void LogWriter::recordStackTrace(
     setSampleType(signum, stackSample);
     setSampleTime(ts, stackSample);
 
-    /*if (isApplicationThread) {
-        auto it = threadIdToInformation.find(trace.env_id);
-        if (it != threadIdToInformation.end()) {
-            ThreadInformation& threadInformation = it->second;
-            stackSample->set_thread_name(threadInformation.name);
-            stackSample->set_thread_id(threadInformation.threadId);
-        } else {
-            setFakeThreadId(trace, stackSample);
-        }
-    } else {
-        setFakeThreadId(trace, stackSample);
-    }*/
+    // TODO: recordThread(0, "FakeThreadName");
+    stackSample->set_thread_name("FakeThreadName");
+    stackSample->set_thread_id(0);
+
     stackSample->set_thread_state(threadState);
 
-    const bool isError = trace.num_frames > 0;
+    int numFrames = trace.num_frames;
+    const bool isError = numFrames < 0;
     stackSample->clear_compressedframes();
-    stackSample->set_error_code(isError ? trace.num_frames : 0);
+    stackSample->set_error_code(isError ? numFrames : 0);
     stackSample->set_wallclockscanid(wallclockScanId);
 
     // Lookup symbols for frames
     CallFrame* frames = trace.frames;
     if (!isError) {
-        for (int frame_idx = 0; frame_idx < trace.num_frames; frame_idx++) {
-            Dwarf_Addr addr = (uintptr_t) frames[frame_idx];
+        for (int frame_idx = 0; frame_idx < numFrames; frame_idx++) {
+            Dwarf_Addr addr = (Dwarf_Addr) frames[frame_idx];
 
-            Dwfl_Module* module = dwfl_addrmodule(dwfl, addr);
-            const char* function_name = dwfl_module_addrname(module, addr);
-
-            Dwfl_Line* line = dwfl_getsrc(dwfl, addr);
-
-            if (line != NULL) {
-                int nline;
-                Dwarf_Addr addr;
-                const char* filename = dwfl_lineinfo(line, &addr, &nline, NULL, NULL, NULL);
-                printf("%s (%s:%d)\n", function_name, filename, nline);
+            data::CompressedFrameEntry *frameEntry = stackSample->add_compressedframes();
+            auto it = knownAddrToInformation_.find(addr);
+            if (it != knownAddrToInformation_.end()) {
+                // If we've seen this address before, just add the compressed stack frame
+                AddrInformation& info = it->second;
+                frameEntry->set_methodid(info.methodId);
+                frameEntry->set_line(info.lineNumber);
             } else {
-                if (function_name != NULL) {
-                    printf("%s\n", function_name);
+                // Looked the symbol information from dwarf
+                Dwfl_Module* module = dwfl_addrmodule(dwfl, addr);
+                const char* function_name = dwfl_module_addrname(module, addr);
+
+                if (function_name == NULL) {
+                    debugLogger_ << "Missing method information: " << addr << endl;
+                } else {
+                    const uintptr_t methodId = reinterpret_cast<uintptr_t>(function_name);
+
+                    int lineNumber = 0;
+                    const char* filename = "Unknown";
+                    Dwfl_Line* line = dwfl_getsrc(dwfl, addr);
+                    if (line != NULL) {
+                        Dwarf_Addr addr;
+                        filename = dwfl_lineinfo(line, &addr, &lineNumber, NULL, NULL, NULL);
+                    }
+
+                    const uintptr_t fileId = reinterpret_cast<uintptr_t>(filename);
+
+                    // Save the address information into the cache
+                    AddrInformation addrInformation = {
+                        methodId,
+                        lineNumber
+                    };
+                    knownAddrToInformation_.insert( { addr, addrInformation } );
+                    frameEntry->set_methodid(methodId);
+                    frameEntry->set_line(lineNumber);
+
+                    // Technically we're emitting a "module" aka class with an empty name on our protocol
+                    // Need to decide if the protocol needs modifying
+                    if (knownFiles_.count(fileId) == 0) {
+                        knownFiles_.insert(fileId);
+
+                        data::ModuleInformation *moduleInfo = nameAgentEnvelope_.mutable_module_information();
+                        moduleInfo->set_moduleid(fileId);
+                        moduleInfo->set_filename(filename);
+                        moduleInfo->set_modulename("");
+
+                        recordWithSize(nameAgentEnvelope_);
+                    }
+
+                    if (knownMethods_.count(methodId) == 0) {
+                        knownMethods_.insert(methodId);
+
+                        data::MethodInformation* methodInfo = nameAgentEnvelope_.mutable_method_information();
+                        methodInfo->set_methodid(methodId);
+                        methodInfo->set_methodname(function_name);
+                        methodInfo->set_moduleid(fileId);
+                        recordWithSize(nameAgentEnvelope_);
+                    }
                 }
             }
         }
     }
 
-    /*if (!isError) {
-        for (int i = 0; i < numFrames; i++) {
-            CallFrame frame = trace.frames[i];
-            jmethodID methodId = frame.method_id;
-            // lineno is in fact byte code index, needs converting to lineno
-            jint bci = frame.lineno;
-
-            debugLogger_ << "start lookupMethod" << endl;
-            nameLookup_.lookupMethod(methodId, *this);
-            debugLogger_ << "end lookupMethod" << endl;
-
-            data::CompressedFrameEntry *frameEntry = stackSample->add_compressedframes();
-
-            debugLogger_ << "start recordFrame" << endl;
-            recordFrame(bci, methodId, frameEntry);
-            debugLogger_ << "end recordFrame" << endl;
-        }
-    }
-
-    stackSample->set_has_max_frames(numFrames >= maxFramesToCapture_);*/
+    stackSample->set_has_max_frames(numFrames >= MAX_FRAMES);
 
     recordWithSize(frameAgentEnvelope_);
 
@@ -153,77 +168,6 @@ void LogWriter::setSampleTime(const timespec &ts, data::StackSample *stackSample
 // ----------------------------
 //      Inspection code
 // ----------------------------
-
-/*void LogWriter::recordNewMethod(
-    jmethodID methodId,
-    jclass classId,
-    const char *methodName) {
-
-    if (methodToLineNumbers.count(methodId) == 0) {
-        jvmtiLineNumberEntry* jvmti_table = nullptr;
-        jint entry_count;
-
-        debugLogger_ << "start jvmti_->GetLineNumberTable() " << methodId << endl;
-
-        int err = jvmti_->GetLineNumberTable((jmethodID) methodId, &entry_count, &jvmti_table);
-        if (err != JVMTI_ERROR_NONE)
-        {
-            jvmti_table = nullptr;
-        }
-        else
-        {
-            debugLogger_ << "JVMTI error when looking up the line number table for "
-                         << classId << "." << methodName << endl;
-        }
-
-        LineNumbers lineNumbers = {
-                jvmti_table,
-                entry_count
-        };
-
-        methodToLineNumbers.insert( { methodId, lineNumbers } );
-    }
-
-    data::MethodInformation* methodInfo = nameAgentEnvelope_.mutable_method_information();
-    methodInfo->set_methodid(toMethodId(methodId));
-    methodInfo->set_methodname(methodName);
-    methodInfo->set_moduleid(toModuleId(classId));
-
-    recordWithSize(nameAgentEnvelope_);
-}
-
-void LogWriter::recordNewClass(
-    jclass classId,
-    const char *fileName,
-    const char *className) {
-
-    data::ModuleInformation *classInfo = nameAgentEnvelope_.mutable_module_information();
-    classInfo->set_moduleid(toModuleId(classId));
-    classInfo->set_filename(fileName);
-    classInfo->set_modulename(className);
-
-    recordWithSize(nameAgentEnvelope_);
-}
-
-void LogWriter::recordFrame(
-    const jint bci,
-    jmethodID methodId,
-    data::CompressedFrameEntry* frameEntry) {
-
-    frameEntry->set_methodid(toMethodId(methodId));
-    auto it = methodToLineNumbers.find(methodId);
-    if (it != methodToLineNumbers.end()) {
-        LineNumbers methodInformation = it->second;
-        bool noTable = methodInformation.lineNumberTable == nullptr;
-    
-        const jint lineNumber = bci <= 0 || noTable ? bci : bci2line(
-            bci, methodInformation.lineNumberTable, methodInformation.entryCount);
-        frameEntry->set_line(static_cast<uint32_t>(lineNumber));
-    } else {
-        frameEntry->set_line(0);
-        debugLogger_ << "Missing method information: " << methodId << endl;
-    }
-}*/
 
 void LogWriter::recordThread(
         int threadId,

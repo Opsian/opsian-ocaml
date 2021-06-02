@@ -86,8 +86,6 @@ void Profiler::handle(int signum, void* context) {
         return;
     }
 
-    printf("invoked!\n");
-
     CallFrame frames[MAX_FRAMES];
 
     uint64_t start_ts = _rdtsc();
