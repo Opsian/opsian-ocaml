@@ -31,6 +31,9 @@
  (modules lib_opsian)
  (library_flags -linkall)
  (foreign_stubs
+  (language c)
+  (names linkable_profiler))
+ (foreign_stubs
   (language cxx)
   (names
     circular_queue
@@ -44,8 +47,8 @@
     log_writer
     metrics
     network
-    processor
     profiler
+    processor
     protocol_handler
     signal_handler
     terminator)
@@ -53,9 +56,9 @@
     -I%{env:THIRD_PARTY=no}/protobuf/include
     -I%{env:THIRD_PARTY=no}/openssl/include
     -I%{env:THIRD_PARTY=no}/boost/include
+    -fPIC
     -isystem %{env:THIRD_PARTY=no}/boost/include ; Do we need this?
     -pthread
-    -fPIC
     -Wall
     -Wformat-security
     -Wno-char-subscripts

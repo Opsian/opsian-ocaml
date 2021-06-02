@@ -15,7 +15,9 @@ bool SignalHandler::updateSigprofInterval(const int timingIntervalInMillis) {
     timer.it_interval.tv_sec = timingIntervalInMillis / 1000;
     timer.it_interval.tv_usec = (timingIntervalInMillis * 1000) % 1000000;
     timer.it_value = timer.it_interval;
-    if (setitimer(ITIMER_PROF, &timer, 0) == -1) {
+
+      if (setitimer(ITIMER_PROF, &timer, 0) == -1) {
+//    if (setitimer(ITIMER_REAL, &timer, 0) == -1) {
         logError("Scheduling profiler interval failed with error %d\n", errno);
         return false;
     }

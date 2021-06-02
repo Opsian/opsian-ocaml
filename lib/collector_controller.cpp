@@ -90,7 +90,6 @@ CollectorController::onSampleRate(
         uint64_t metricsSampleRateMillis,
         vector<string>& disabledMetricPrefixes) {
 
-    /* Re-enable this when integrating sadiq's code
     if (switchProcessTimeProfilingOn) {
         if (processTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
         {
@@ -99,7 +98,7 @@ CollectorController::onSampleRate(
         }
     } else if (signalHandler_.isProfiling()) {
         signalHandler_.stopSigprof();
-    }*/
+    }
 
     /* Re-enable this when we support wallclock profiling on ocaml
     if (switchElapsedTimeProfilingOn) {

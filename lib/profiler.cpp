@@ -1,9 +1,5 @@
 #include "profiler.h"
 
-#define TARGET_amd64
-#define CAML_INTERNALS
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -13,6 +9,7 @@
 #include <sys/time.h>
 #include <ucontext.h>
 #include <unistd.h>
+
 
 #ifdef __x86_64
 /* Only for _rdstc */
@@ -24,16 +21,6 @@ int64_t _rdtsc() {
   return virtual_timer_value;
 }
 #endif
-
-#include "caml/backtrace.h"
-#include "caml/backtrace_prim.h"
-#include "caml/codefrag.h"
-#include "caml/misc.h"
-#include "caml/mlvalues.h"
-#include "caml/stack.h"
-
-#define UNW_LOCAL_ONLY
-#include <libunwind.h>
 
 const int PUSH_ATTEMPTS = 1000;
 
@@ -102,74 +89,10 @@ void Profiler::handle(int signum, void* context) {
     printf("invoked!\n");
 
     CallFrame frames[MAX_FRAMES];
-    int num_frames = 0;
-    int ret;
-    unw_context_t ucp;
-    unw_cursor_t cursor;
-    unw_word_t uw_ip, uw_sp;
-    uint64_t start_ts, stack_ts;
 
-    start_ts = _rdtsc();
-
-    ret = unw_getcontext(&ucp);
-
-    if (ret == -1) {
-        // TODO: Increment error stat here
-        printf("unw_getcontext failed\n");
-        return;
-    }
-
-    ret = unw_init_local(&cursor, &ucp);
-
-    if (ret < 0) {
-        // TODO: Increment error stat here. Use error codes from unw_init_local
-        printf("unw_init_local failed\n");
-        return;
-    }
-
-    // TODO: Get the return value from unw_step and increase the error codes
-    while (num_frames < MAX_FRAMES) {
-        ret = unw_step(&cursor);
-
-        if (ret <= 0) {
-            // Use error codes for this and log
-            break;
-        }
-
-        struct code_fragment* frag;
-
-        unw_get_reg(&cursor, UNW_REG_IP, &uw_ip);
-        unw_get_reg(&cursor, UNW_REG_SP, &uw_sp);
-
-        frames[num_frames] = (uint64_t) uw_ip;
-        num_frames += 1;
-
-        frag = caml_find_code_fragment_by_pc((char*) uw_ip);
-        if (frag != NULL) {
-            uint64_t pc;
-            char* sp;
-
-            // TODO: check with Sadiq whether he cares about: uint64_t ret_addr = *(((uint64_t*) uw_sp) + 1);
-
-            pc = (uint64_t) uw_ip;
-            sp = (char*) uw_sp;
-
-            while (num_frames < MAX_FRAMES) {
-                frame_descr* fd = caml_next_frame_descriptor(&pc, &sp);
-
-                if (fd == NULL) {
-                    break;
-                }
-
-                frames[num_frames] = pc;
-                num_frames += 1;
-            }
-
-            break;
-        }
-    }
-
-    stack_ts = _rdtsc();
+    uint64_t start_ts = _rdtsc();
+    int num_frames = linkable_handle(frames);
+    uint64_t stack_ts = _rdtsc();
 
     // TODO: re-add when we use wallclock
     // const int wallclockScanId = wallclockScanId_.load(std::memory_order::memory_order_relaxed);
@@ -277,7 +200,7 @@ void Profiler::configure(pthread_mutex_t& threadLock) {
         configuration_->samplingIntervalMax);
 
     string ocamlVersion = "TODO";
-    int processorCount = 0; // TODO
+    int processorCount = 1;
 
     const bool isOn = !apiKey.empty() && hasHostName == 0;
 

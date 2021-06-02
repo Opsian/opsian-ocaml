@@ -112,6 +112,8 @@ void start_opsian_native() {
 void bootstrapHandle(int signum, siginfo_t *info, void *context) {
     IMPLICITLY_USE(info)
 
+    printf("bootstrapHandle\n");
+
     if (!Profiler::isValidThread()) {
         return;
     }
@@ -135,6 +137,5 @@ void stop_opsian_native() {
 }
 
 // TODO:
-// * integrate sadiq's profiler prototype - CollectorController::onSampleRate
 // * hook thread start / stop events call prof->onThreadStart() / prof->onThreadEnd()
 // * hook stopping the environment

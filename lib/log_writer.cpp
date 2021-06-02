@@ -77,14 +77,14 @@ void LogWriter::recordStackTrace(
     }*/
     stackSample->set_thread_state(threadState);
 
+    const bool isError = trace.num_frames > 0;
     stackSample->clear_compressedframes();
-    const int32_t errorCode = 0; // TODO
-    stackSample->set_error_code(errorCode);
+    stackSample->set_error_code(isError ? trace.num_frames : 0);
     stackSample->set_wallclockscanid(wallclockScanId);
 
     // Lookup symbols for frames
     CallFrame* frames = trace.frames;
-    if (trace.num_frames > 0) {
+    if (!isError) {
         for (int frame_idx = 0; frame_idx < trace.num_frames; frame_idx++) {
             Dwarf_Addr addr = (uintptr_t) frames[frame_idx];
 

@@ -8,6 +8,9 @@
 #include <string>
 #include <string.h>
 #include <fstream>
+#include "linkable_profiler.h"
+
+extern "C" int linkable_handle(CallFrame* frames);
 
 #ifdef __MACH__
 #   include <mach/clock.h>
@@ -22,13 +25,6 @@ int getTid();
 
 const int MAX_HEADER_SIZE = 5;
 
-typedef uint64_t CallFrame;
-typedef struct {
-    uint num_frames;
-    CallFrame* frames;
-} CallTrace;
-typedef uint64_t VMSymbol;
-
 class Profiler;
 class CollectorController;
 class DebugLogger;
@@ -36,7 +32,6 @@ class DebugLogger;
 void logError(const char *__restrict format, ...);
 
 const int DEFAULT_SAMPLING_INTERVAL = 1;
-const int MAX_FRAMES = 256;
 
 extern const char* const GIT_HASH;
 extern const char* const GIT_TAGS;

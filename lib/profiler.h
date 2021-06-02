@@ -22,7 +22,7 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <sys/stat.h> 
+#include <sys/stat.h>
 #include <boost/asio.hpp>
 
 using namespace std::chrono;
