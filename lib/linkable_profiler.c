@@ -60,15 +60,14 @@ int linkable_handle(CallFrame* frames) {
         unw_get_reg(&cursor, UNW_REG_IP, &uw_ip);
         unw_get_reg(&cursor, UNW_REG_SP, &uw_sp);
 
-        frames[num_frames] = (uint64_t) uw_ip;
+        frames[num_frames].frame = (uint64_t) uw_ip;
+        frames[num_frames].isForeign = true;
         num_frames += 1;
 
         frag = caml_find_code_fragment_by_pc((char*) uw_ip);
         if (frag != NULL) {
             uint64_t pc;
             char* sp;
-
-            // TODO: check with Sadiq whether he cares about: uint64_t ret_addr = *(((uint64_t*) uw_sp) + 1);
 
             pc = (uint64_t) uw_ip;
             sp = (char*) uw_sp;
@@ -80,7 +79,8 @@ int linkable_handle(CallFrame* frames) {
                     break;
                 }
 
-                frames[num_frames] = pc;
+                frames[num_frames].frame = pc;
+                frames[num_frames].isForeign = false;
                 num_frames += 1;
             }
 

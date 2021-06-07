@@ -75,65 +75,67 @@ void LogWriter::recordStackTrace(
     CallFrame* frames = trace.frames;
     if (!isError) {
         for (int frame_idx = 0; frame_idx < numFrames; frame_idx++) {
-            Dwarf_Addr addr = (Dwarf_Addr) frames[frame_idx];
+            if (!frames[frame_idx].isForeign) {
+                Dwarf_Addr addr = (Dwarf_Addr) frames[frame_idx].frame;
 
-            data::CompressedFrameEntry *frameEntry = stackSample->add_compressedframes();
-            auto it = knownAddrToInformation_.find(addr);
-            if (it != knownAddrToInformation_.end()) {
-                // If we've seen this address before, just add the compressed stack frame
-                AddrInformation& info = it->second;
-                frameEntry->set_methodid(info.methodId);
-                frameEntry->set_line(info.lineNumber);
-            } else {
-                // Looked the symbol information from dwarf
-                Dwfl_Module* module = dwfl_addrmodule(dwfl, addr);
-                const char* function_name = dwfl_module_addrname(module, addr);
-
-                if (function_name == NULL) {
-                    debugLogger_ << "Missing method information: " << addr << endl;
+                data::CompressedFrameEntry *frameEntry = stackSample->add_compressedframes();
+                auto it = knownAddrToInformation_.find(addr);
+                if (it != knownAddrToInformation_.end()) {
+                    // If we've seen this address before, just add the compressed stack frame
+                    AddrInformation& info = it->second;
+                    frameEntry->set_methodid(info.methodId);
+                    frameEntry->set_line(info.lineNumber);
                 } else {
-                    const uintptr_t methodId = reinterpret_cast<uintptr_t>(function_name);
+                    // Looked the symbol information from dwarf
+                    Dwfl_Module* module = dwfl_addrmodule(dwfl, addr);
+                    const char* function_name = dwfl_module_addrname(module, addr);
 
-                    int lineNumber = 0;
-                    const char* filename = "Unknown";
-                    Dwfl_Line* line = dwfl_getsrc(dwfl, addr);
-                    if (line != NULL) {
-                        Dwarf_Addr addr;
-                        filename = dwfl_lineinfo(line, &addr, &lineNumber, NULL, NULL, NULL);
-                    }
+                    if (function_name == NULL) {
+                        debugLogger_ << "Missing method information: " << addr << endl;
+                    } else {
+                        const uintptr_t methodId = reinterpret_cast<uintptr_t>(function_name);
 
-                    const uintptr_t fileId = reinterpret_cast<uintptr_t>(filename);
+                        int lineNumber = 0;
+                        const char* filename = "Unknown";
+                        Dwfl_Line* line = dwfl_getsrc(dwfl, addr);
+                        if (line != NULL) {
+                            Dwarf_Addr addr;
+                            filename = dwfl_lineinfo(line, &addr, &lineNumber, NULL, NULL, NULL);
+                        }
 
-                    // Save the address information into the cache
-                    AddrInformation addrInformation = {
-                        methodId,
-                        lineNumber
-                    };
-                    knownAddrToInformation_.insert( { addr, addrInformation } );
-                    frameEntry->set_methodid(methodId);
-                    frameEntry->set_line(lineNumber);
+                        const uintptr_t fileId = reinterpret_cast<uintptr_t>(filename);
 
-                    // Technically we're emitting a "module" aka class with an empty name on our protocol
-                    // Need to decide if the protocol needs modifying
-                    if (knownFiles_.count(fileId) == 0) {
-                        knownFiles_.insert(fileId);
+                        // Save the address information into the cache
+                        AddrInformation addrInformation = {
+                            methodId,
+                            lineNumber
+                        };
+                        knownAddrToInformation_.insert( { addr, addrInformation } );
+                        frameEntry->set_methodid(methodId);
+                        frameEntry->set_line(lineNumber);
 
-                        data::ModuleInformation *moduleInfo = nameAgentEnvelope_.mutable_module_information();
-                        moduleInfo->set_moduleid(fileId);
-                        moduleInfo->set_filename(filename);
-                        moduleInfo->set_modulename("");
+                        // Technically we're emitting a "module" aka class with an empty name on our protocol
+                        // Need to decide if the protocol needs modifying
+                        if (knownFiles_.count(fileId) == 0) {
+                            knownFiles_.insert(fileId);
 
-                        recordWithSize(nameAgentEnvelope_);
-                    }
+                            data::ModuleInformation *moduleInfo = nameAgentEnvelope_.mutable_module_information();
+                            moduleInfo->set_moduleid(fileId);
+                            moduleInfo->set_filename(filename);
+                            moduleInfo->set_modulename("");
 
-                    if (knownMethods_.count(methodId) == 0) {
-                        knownMethods_.insert(methodId);
+                            recordWithSize(nameAgentEnvelope_);
+                        }
 
-                        data::MethodInformation* methodInfo = nameAgentEnvelope_.mutable_method_information();
-                        methodInfo->set_methodid(methodId);
-                        methodInfo->set_methodname(function_name);
-                        methodInfo->set_moduleid(fileId);
-                        recordWithSize(nameAgentEnvelope_);
+                        if (knownMethods_.count(methodId) == 0) {
+                            knownMethods_.insert(methodId);
+
+                            data::MethodInformation* methodInfo = nameAgentEnvelope_.mutable_method_information();
+                            methodInfo->set_methodid(methodId);
+                            methodInfo->set_methodname(function_name);
+                            methodInfo->set_moduleid(fileId);
+                            recordWithSize(nameAgentEnvelope_);
+                        }
                     }
                 }
             }
