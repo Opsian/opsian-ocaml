@@ -56,8 +56,10 @@ void Profiler::initThreadIdMap(ureg size) {
 
 Profiler::Profiler(
     ConfigurationOptions *configuration,
-    pthread_mutex_t& threadLock)
+    pthread_mutex_t& threadLock,
+    const string ocamlVersion)
     :   wallclockScanId_(0),
+        ocamlVersion_(ocamlVersion),
         configuration_(configuration),
         processorTerminator(nullptr),
         metricsTerminator(nullptr),
@@ -197,7 +199,6 @@ void Profiler::configure(pthread_mutex_t& threadLock) {
         configuration_->samplingIntervalMin,
         configuration_->samplingIntervalMax);
 
-    string ocamlVersion = "TODO";
     int processorCount = 1;
 
     const bool isOn = !apiKey.empty() && hasHostName == 0;
@@ -213,7 +214,7 @@ void Profiler::configure(pthread_mutex_t& threadLock) {
         agentId,
         hostname,
         configuration_->applicationVersion,
-        ocamlVersion,
+        ocamlVersion_,
         static_cast<uint32_t >(processorCount),
         boost::bind(&Profiler::onSocketConnected, this),
         boost::bind(&Profiler::recordAllocationTable, this),

@@ -47,7 +47,8 @@ public:
 
     explicit Profiler(
         ConfigurationOptions *configuration,
-        pthread_mutex_t& threadLock);
+        pthread_mutex_t& threadLock,
+        const string ocamlVersion);
 
     bool start();
 
@@ -72,6 +73,8 @@ private:
     static ThreadIdMap* pThreadIdToJavaThread_;
 
     std::atomic<int> wallclockScanId_;
+
+    string ocamlVersion_;
 
     ConfigurationOptions *configuration_;
 

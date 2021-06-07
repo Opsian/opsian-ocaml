@@ -3,8 +3,9 @@
 #include "profiler.h"
 #include <execinfo.h>
 #include <signal.h>
+#include "caml/mlvalues.h"
 
-extern "C" void start_opsian_native();
+extern "C" CAMLprim void start_opsian_native(value ocamlVersionStr);
 
 // Guards deletion of prof against thread start/end
 #if defined(PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP)
@@ -83,8 +84,10 @@ void crashHandler(int sig) {
     exit(1);
 }
 
-void start_opsian_native() {
+CAMLprim void start_opsian_native(value ocamlVersionStr) {
     signal(SIGSEGV, crashHandler);
+
+    const char* ocamlVersion = String_val(ocamlVersionStr);
 
     std::istringstream(AGENT_VERSION_STR) >> AGENT_VERSION;
 
@@ -105,7 +108,7 @@ void start_opsian_native() {
         ERROR_FILE = new ofstream(errorLogPath);
     }
 
-    prof = new Profiler(CONFIGURATION, threadLock);
+    prof = new Profiler(CONFIGURATION, threadLock, ocamlVersion);
     prof->start();
 }
 
