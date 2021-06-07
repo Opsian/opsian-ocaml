@@ -32,4 +32,5 @@ let () =
   Printf.printf "Hello world!\n%!";
   while true ; do
     ignore(Sys.opaque_identity(a 5))
-  done
+  done;
+  Printf.printf "Done!\n%!"

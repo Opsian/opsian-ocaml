@@ -75,7 +75,7 @@ void LogWriter::recordStackTrace(
     CallFrame* frames = trace.frames;
     if (!isError) {
         for (int frame_idx = 0; frame_idx < numFrames; frame_idx++) {
-            if (true) { // !frames[frame_idx].isForeign
+            if (!frames[frame_idx].isForeign) {
                 Dwarf_Addr addr = (Dwarf_Addr) frames[frame_idx].frame;
 
                 data::CompressedFrameEntry *frameEntry = stackSample->add_compressedframes();
