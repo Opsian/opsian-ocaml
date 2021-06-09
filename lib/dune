@@ -5,12 +5,11 @@
 
 (rule
  (deps (source_tree deps))
- (targets libprotobuf.a libboost_atomic.a libboost_chrono.a libboost_date_time.a libboost_system.a libboost_thread.a libcrypto.a libssl.a)
+ (targets libprotobuf.a libboost_chrono.a libboost_date_time.a libboost_system.a libboost_thread.a libcrypto.a libssl.a)
  (action
  (no-infer
   (progn
    (copy deps/libprotobuf.a libprotobuf.a)
-   (copy deps/libboost_atomic.a libboost_atomic.a)
    (copy deps/libboost_chrono.a libboost_chrono.a)
    (copy deps/libboost_date_time.a libboost_date_time.a)
    (copy deps/libboost_system.a libboost_system.a)
@@ -68,7 +67,7 @@
     -funsigned-char
     -std=c++0x
     -g))
- (foreign_archives protobuf boost_atomic boost_chrono boost_date_time boost_system boost_thread ssl crypto)
+ (foreign_archives protobuf boost_chrono boost_date_time boost_system boost_thread ssl crypto)
  (c_library_flags (
     -lunwind
     -lpthread
