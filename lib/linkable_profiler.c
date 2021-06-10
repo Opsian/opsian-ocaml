@@ -61,10 +61,11 @@ int linkable_handle(CallFrame* frames) {
         unw_get_reg(&cursor, UNW_REG_SP, &uw_sp);
 
         frames[num_frames].frame = (uint64_t) uw_ip;
-        frames[num_frames].isForeign = true;
+        frag = caml_find_code_fragment_by_pc((char*) uw_ip);
+        frames[num_frames].isForeign = frag == NULL;
+
         num_frames += 1;
 
-        frag = caml_find_code_fragment_by_pc((char*) uw_ip);
         if (frag != NULL) {
             uint64_t pc;
             char* sp;
