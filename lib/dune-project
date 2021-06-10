@@ -1,0 +1,3 @@
+(lang dune 2.6)
+(formatting (enabled_for ocaml))
+(name lib-opsian)
