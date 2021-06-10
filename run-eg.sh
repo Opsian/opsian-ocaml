@@ -2,4 +2,4 @@
 
 set -eu
 
-./_build/default/examples/opsian_examples.exe
+./_build/default/examples/opsian_examples.exe "$@"

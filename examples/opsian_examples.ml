@@ -28,9 +28,32 @@ let a n =
     n2
     [@@inline never]
 
-let () =
-  Printf.printf "Hello world!\n%!";
+let do_work () =
   while true ; do
     ignore(Sys.opaque_identity(a 5))
-  done;
+  done
+
+let work () =
+  Printf.printf "Starting work\n%!";
+  do_work ();
   Printf.printf "Done!\n%!"
+
+let threads () =
+  Printf.printf "Starting threads\n%!";
+  let t1 = Thread.create (print_endline "t1"; do_work) ()
+  and t2 = Thread.create (print_endline "t2"; do_work) () in
+    Thread.join t1;
+    Thread.join t2;
+  Printf.printf "Done!\n%!"
+
+let () =
+  Printf.printf "Running example with:";
+  Array.iter print_endline Sys.argv;
+  print_endline "";
+
+  match List.tl (Array.to_list Sys.argv) with
+  [] -> work ()
+  | "threads"::[] -> threads ()
+  | "work"::[] -> work ()
+  | _ -> Printf.printf "Unknown \n";
+
