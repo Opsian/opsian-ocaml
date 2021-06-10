@@ -160,6 +160,7 @@ void CircularQueue::write(const CallTrace& item, size_t slot, StackHolder& holde
     }
 
     holder.trace.frames = fb;
+    holder.trace.threadId = item.threadId;
     holder.trace.num_frames = item.num_frames;
 }
 

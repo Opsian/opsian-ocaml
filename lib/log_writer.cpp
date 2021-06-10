@@ -6,11 +6,14 @@
 #include "network.h"
 #include <cstdint>
 #include <stdio.h>
+#include <pthread.h>
 
 using google::protobuf::util::SerializeDelimitedToZeroCopyStream;
 
 using std::copy;
 using data::SampleTimeType;
+
+#define THREAD_NAME_BUFFER_SIZE 64
 
 char* debuginfo_path = NULL;
 
@@ -69,9 +72,7 @@ void LogWriter::recordStackTrace(
     setSampleType(signum, stackSample);
     setSampleTime(ts, stackSample);
 
-    // TODO: recordThread(0, "FakeThreadName");
-    stackSample->set_thread_name("FakeThreadName");
-    stackSample->set_thread_id(0);
+    threadName(trace.threadId, stackSample);
 
     stackSample->set_thread_state(threadState);
 
@@ -181,6 +182,42 @@ void LogWriter::setSampleTime(const timespec &ts, data::StackSample *stackSample
     stackSample->set_time_epoch_millis(static_cast<google::protobuf::uint64>(time_epoch_millis));
 }
 
+void LogWriter::threadName(pthread_t threadId, data::StackSample* stackSample) {
+    // TODO: widen the protocol type to 64bit integers
+    stackSample->set_thread_id(threadId);
+
+    auto it = threadIdToInformation.find(threadId);
+    if (it != threadIdToInformation.end()) {
+        // If we've seen this address before, just add the compressed stack frame
+        ThreadInformation& info = it->second;
+        stackSample->set_thread_name(info.name);
+    } else {
+        const char* thread_name;
+        char buf[THREAD_NAME_BUFFER_SIZE];
+        int ret = pthread_getname_np(threadId, buf, THREAD_NAME_BUFFER_SIZE);
+        if (ret < 0) {
+            if (ret == ERANGE) {
+                buffer_.pushNotification(data::NotificationCategory::USER_ERROR,
+                                         "ERANGE error from pthread_getname_np");
+            } else {
+                buffer_.pushNotification(data::NotificationCategory::USER_ERROR,
+                                         "unknown error from pthread_getname_np: ", ret);
+            }
+            thread_name = "Unknown";
+        } else {
+            thread_name = buf;
+        }
+
+        stackSample->set_thread_name(thread_name);
+        ThreadInformation threadInformation = {
+            threadId,
+            thread_name
+        };
+
+        threadIdToInformation.insert({threadId, threadInformation});
+    }
+}
+
 // ----------------------------
 //      Inspection code
 // ----------------------------
@@ -189,12 +226,13 @@ void LogWriter::recordThread(
         int threadId,
         const string& name) {
 
-    ThreadInformation threadInformation = {
+    // TODO: either re-add this when we hook thread creation or remove it.
+    /*ThreadInformation threadInformation = {
         threadId,
         name
     };
 
-    threadIdToInformation.insert({threadId, threadInformation});
+    threadIdToInformation.insert({threadId, threadInformation});*/
 }
 
 void LogWriter::recordAllocation(uintptr_t allocationSize, bool outsideTlab, VMSymbol *symbol) {

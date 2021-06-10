@@ -34,7 +34,7 @@ namespace asio = boost::asio;
 using asio::ip::tcp;
 
 struct ThreadInformation {
-    int threadId;
+    pthread_t threadId;
     string name;
 };
 
@@ -120,6 +120,9 @@ public:
     virtual void recordConstantMetricsComplete();
 
 private:
+
+    void threadName(pthread_t threadId, data::StackSample* stackSample);
+
     ZeroCopyOutputStream* output_;
 
     CircularQueue& buffer_;

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 typedef struct {
     // true iff we've unwound the frame using dwarf - so it's C, C++, Rust or something.
@@ -13,6 +14,7 @@ typedef struct {
 
 typedef struct {
     int num_frames;
+    pthread_t threadId;
     CallFrame* frames;
 } CallTrace;
 

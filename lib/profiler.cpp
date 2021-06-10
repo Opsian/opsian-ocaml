@@ -128,6 +128,7 @@ void Profiler::handle(int signum, void* context) {
         CallTrace trace;
         trace.frames = frames;
         trace.num_frames = num_frames;
+        trace.threadId = pthread_self();
         const bool enqueued = buffer->pushStackTrace(trace, signum, 0, 0, stack_ts - start_ts);
         if (!enqueued) {
             if (signum == SIGPROF) {
