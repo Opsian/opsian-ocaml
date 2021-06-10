@@ -199,8 +199,7 @@ void Profiler::configure(pthread_mutex_t& threadLock) {
         configuration_->samplingIntervalMin,
         configuration_->samplingIntervalMax);
 
-    int processorCount = 1;
-
+    const int processorCount = 1;
     const bool isOn = !apiKey.empty() && hasHostName == 0;
 
     buffer = new CircularQueue(configuration_->maxFramesToCapture);
@@ -227,6 +226,7 @@ void Profiler::configure(pthread_mutex_t& threadLock) {
 
     writer = new LogWriter(
         logFile,
+        *buffer,
         *network_,
         *collectorController,
         *debugLogger_,

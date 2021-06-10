@@ -5,13 +5,14 @@
 #include <google/protobuf/util/delimited_message_util.h>
 #include "network.h"
 #include <cstdint>
+#include <stdio.h>
 
 using google::protobuf::util::SerializeDelimitedToZeroCopyStream;
 
 using std::copy;
 using data::SampleTimeType;
 
-char *debuginfo_path=NULL;
+char* debuginfo_path = NULL;
 
 Dwfl_Callbacks callbacks = {
     .find_elf=dwfl_linux_proc_find_elf,
@@ -19,17 +20,26 @@ Dwfl_Callbacks callbacks = {
     .debuginfo_path=&debuginfo_path,
 };
 
-Dwfl* dwfl;
+Dwfl* dwfl = NULL;
+
+void pushDwarfError(int returnCode, CircularQueue& queue) {
+    const char* errorMessage = dwfl_errmsg(returnCode);
+    const char* formatString = "Dwarf Error: %s";
+    int size = snprintf(NULL, 0, formatString, errorMessage);
+    char buf[size + 1];
+    snprintf(buf, sizeof buf, formatString, errorMessage);
+    queue.pushNotification(data::NotificationCategory::USER_ERROR, buf);
+}
 
 void LogWriter::initDwarf() {
     dwfl = dwfl_begin(&callbacks);
     int ret = dwfl_linux_proc_report(dwfl, getpid());
     if (ret != 0) {
-        // TODO: error code here, report error over the wire
+        pushDwarfError(ret, buffer_);
     }
     ret = dwfl_report_end(dwfl, NULL, NULL);
     if (ret != 0) {
-        // TODO: error code here report error over the wire
+        pushDwarfError(ret, buffer_);
     }
 }
 

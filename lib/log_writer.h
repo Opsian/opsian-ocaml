@@ -59,12 +59,14 @@ class LogWriter : public QueueListener {
 public:
     explicit LogWriter(
         ZeroCopyOutputStream* output,
+        CircularQueue& buffer,
         Network& network,
         CollectorController& controller,
         DebugLogger& debugLogger,
         int maxFramesToCapture,
         bool logCorruption)
             : output_(output),
+              buffer_(buffer),
               network_(network),
               controller_(controller),
               threadIdToInformation(),
@@ -119,6 +121,8 @@ public:
 
 private:
     ZeroCopyOutputStream* output_;
+
+    CircularQueue& buffer_;
 
     Network& network_;
 
