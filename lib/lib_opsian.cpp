@@ -93,11 +93,9 @@ CAMLprim void start_opsian_native(value ocamlVersionStr) {
 
     char* options = getenv("OPSIAN_OPTS");
     if (options == nullptr) {
-        printf("Please set the environment variable 'OPSIAN_OPTS' in order to use Opsian\n");
+        logError("Please set the environment variable 'OPSIAN_OPTS' in order to use Opsian\n");
         return;
     }
-
-    printf("Starting Opsian with: %s!\n", options);
 
     CONFIGURATION = new ConfigurationOptions();
     parseArguments(options, *CONFIGURATION);
