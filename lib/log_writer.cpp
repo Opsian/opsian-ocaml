@@ -255,7 +255,7 @@ void LogWriter::recordNotification(data::NotificationCategory category, const st
 
     const string& categoryName = data::NotificationCategory_Name(category);
     std::ostringstream oss;
-    oss << categoryName << ": " << payload << value;
+    oss << categoryName << ": " << payload;
     string logMessage = oss.str();
     logError(logMessage.c_str());
 

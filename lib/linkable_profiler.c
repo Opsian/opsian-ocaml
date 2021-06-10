@@ -23,7 +23,7 @@
 // Code is split out into a separate C file rather than C++ in order to work around Dune / Ocaml linking issue
 // between Ocaml internals and C++.
 
-int linkable_handle(CallFrame* frames) {
+int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
     int num_frames = 0;
     int ret;
     unw_context_t ucp;
@@ -32,26 +32,26 @@ int linkable_handle(CallFrame* frames) {
 
     ret = unw_getcontext(&ucp);
 
-    if (ret == -1) {
-        // TODO: Increment error stat here
-        printf("unw_getcontext failed\n");
+    if (ret < 0) {
+        holder->type = GET_CONTEXT_FAIL;
+        holder->errorCode = ret;
         return ret;
     }
 
     ret = unw_init_local(&cursor, &ucp);
 
     if (ret < 0) {
-        // TODO: Increment error stat here. Use error codes from unw_init_local
-        printf("unw_init_local failed\n");
+        holder->type = INIT_LOCAL_FAIL;
+        holder->errorCode = ret;
         return ret;
     }
 
-    // TODO: Get the return value from unw_step and increase the error codes
     while (num_frames < MAX_FRAMES) {
         ret = unw_step(&cursor);
 
         if (ret <= 0) {
-            // Use error codes for this and log
+            holder->type = STEP_FAIL;
+            holder->errorCode = ret;
             break;
         }
 

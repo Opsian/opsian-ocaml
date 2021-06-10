@@ -10,7 +10,7 @@
 #include <fstream>
 #include "linkable_profiler.h"
 
-extern "C" int linkable_handle(CallFrame* frames);
+extern "C" int linkable_handle(CallFrame* frames, ErrorHolder* errorHolder);
 
 #ifdef __MACH__
 #   include <mach/clock.h>

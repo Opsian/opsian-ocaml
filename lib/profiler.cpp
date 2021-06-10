@@ -9,7 +9,7 @@
 #include <sys/time.h>
 #include <ucontext.h>
 #include <unistd.h>
-
+#include <libunwind.h>
 
 #ifdef __x86_64
 /* Only for _rdstc */
@@ -81,6 +81,31 @@ void Profiler::shutdown() {
     shuttingDown.store(true, std::memory_order_release);
 }
 
+void pushError(ErrorHolder* errorHolder, CircularQueue* queue) {
+    const char* functionName;
+    switch (errorHolder->type) {
+        case GET_CONTEXT_FAIL:
+            functionName = "unw_getcontext";
+            break;
+        case INIT_LOCAL_FAIL:
+            functionName = "unw_init_local";
+            break;
+        case STEP_FAIL:
+            functionName = "unw_step";
+            break;
+        default:
+            functionName = "Unknown";
+            break;
+    }
+
+    const char* errorName = unw_strerror(errorHolder->errorCode);
+    const char* formatString = "in linkable_handle for %s: %s";
+    int size = snprintf(NULL, 0, formatString, functionName, errorName);
+    char buf[size + 1];
+    snprintf(buf, sizeof buf, formatString, functionName, errorName);
+    queue->pushNotification(data::NotificationCategory::USER_ERROR, buf);
+}
+
 void Profiler::handle(int signum, void* context) {
     if (! (signum == SIGPROF || signum == SIGALRM)) {
         buffer->pushNotification(
@@ -89,23 +114,30 @@ void Profiler::handle(int signum, void* context) {
     }
 
     CallFrame frames[MAX_FRAMES];
+    ErrorHolder errorHolder;
+    errorHolder.errorCode = 0;
+    errorHolder.type = SUCCESS;
 
     uint64_t start_ts = _rdtsc();
-    int num_frames = linkable_handle(frames);
+    int num_frames = linkable_handle(frames, &errorHolder);
     uint64_t stack_ts = _rdtsc();
 
-    // TODO: re-add when we use wallclock
-    // const int wallclockScanId = wallclockScanId_.load(std::memory_order::memory_order_relaxed);
-    CallTrace trace;
-    trace.frames = frames;
-    trace.num_frames = num_frames;
-    const bool enqueued = buffer->pushStackTrace(trace, signum, 0, 0, stack_ts - start_ts);
-    if (!enqueued) {
-        if (signum == SIGPROF) {
-            CircularQueue::cputimeFailures++;
-        } else {
-            CircularQueue::wallclockFailures++;
+    if (errorHolder.type == SUCCESS) {
+        // TODO: re-add when we use wallclock
+        // const int wallclockScanId = wallclockScanId_.load(std::memory_order::memory_order_relaxed);
+        CallTrace trace;
+        trace.frames = frames;
+        trace.num_frames = num_frames;
+        const bool enqueued = buffer->pushStackTrace(trace, signum, 0, 0, stack_ts - start_ts);
+        if (!enqueued) {
+            if (signum == SIGPROF) {
+                CircularQueue::cputimeFailures++;
+            } else {
+                CircularQueue::wallclockFailures++;
+            }
         }
+    } else {
+        pushError(&errorHolder, buffer);
     }
 }
 

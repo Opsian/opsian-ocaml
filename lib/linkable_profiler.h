@@ -20,4 +20,16 @@ typedef uint64_t VMSymbol;
 
 const int MAX_FRAMES = 256;
 
+typedef enum ErrorType_t {
+    SUCCESS = 0,
+    GET_CONTEXT_FAIL = 1,
+    INIT_LOCAL_FAIL = 2,
+    STEP_FAIL = 3,
+} ErrorType;
+
+typedef struct {
+    int errorCode;
+    ErrorType type;
+} ErrorHolder;
+
 #endif // LINKABLE_PROFILER_H
