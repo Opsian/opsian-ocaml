@@ -96,7 +96,8 @@ void LogWriter::recordStackTrace(
                     AddrInformation& info = it->second;
                     frameEntry->set_methodid(info.methodId);
                     frameEntry->set_line(info.lineNumber);
-                    // TODO: better debug logging printf("%s %s\n", (char*)info.methodId, frames[frame_idx].isForeign ? "true" : "false");
+                    // TODO: better debug logging
+                    // printf("%lu %s %s\n", addr, (char*)info.methodId, frames[frame_idx].isForeign ? "true" : "false");
                 } else {
                     // Looked the symbol information from dwarf
                     Dwfl_Module* module = dwfl_addrmodule(dwfl, addr);
@@ -105,7 +106,8 @@ void LogWriter::recordStackTrace(
                     if (function_name == NULL) {
                         debugLogger_ << "Missing method information: " << addr << endl;
                     } else {
-                        // TODO: better debug logging printf("%s %s\n", function_name, frames[frame_idx].isForeign ? "true" : "false");
+                        // TODO: better debug logging
+                        // printf("%lu %s %s\n", addr, function_name, frames[frame_idx].isForeign ? "true" : "false");
                         const uintptr_t methodId = reinterpret_cast<uintptr_t>(function_name);
 
                         int lineNumber = 0;
