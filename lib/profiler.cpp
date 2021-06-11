@@ -166,7 +166,8 @@ void Profiler::stop() {
     signal(SIGPROF, SIG_IGN);
     signal(SIGALRM, SIG_IGN);
 
-    handler_->stopSigprof();
+    handler_->stopElapsedProfiling();
+    handler_->stopProcessProfiling();
     metrics->stopThread();
     processor->stop();
 }
@@ -228,9 +229,7 @@ void Profiler::configure(pthread_mutex_t& threadLock) {
     network_ = new Network(
         host, port, configuration_->customCertificateFile, *debugLogger_, configuration_->onPremHost);
 
-    handler_ = new SignalHandler(
-        configuration_->samplingIntervalMin,
-        configuration_->samplingIntervalMax);
+    handler_ = new SignalHandler();
 
     const int processorCount = 1;
     const bool isOn = !apiKey.empty() && hasHostName == 0;

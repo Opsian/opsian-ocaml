@@ -31,8 +31,6 @@ class DebugLogger;
 
 void logError(const char *__restrict format, ...);
 
-const int DEFAULT_SAMPLING_INTERVAL = 1;
-
 extern const char* const GIT_HASH;
 extern const char* const GIT_TAGS;
 extern const char* const GIT_STR;
@@ -83,9 +81,6 @@ void assign_range(char* value, char* next, std::string& to);
 char *safe_copy_string(const char *value, const char *next);
 
 struct ConfigurationOptions {
-    /** Interval in microseconds */
-    int samplingIntervalMin;
-    int samplingIntervalMax;
     std::string logFilePath;
     std::string host;
     std::string port;
@@ -100,8 +95,6 @@ struct ConfigurationOptions {
     bool logCorruption;
 
     ConfigurationOptions() :
-            samplingIntervalMin(DEFAULT_SAMPLING_INTERVAL),
-            samplingIntervalMax(DEFAULT_SAMPLING_INTERVAL),
             logFilePath(""),
             host(DEFAULT_HOST),
             port(DEFAULT_PORT),

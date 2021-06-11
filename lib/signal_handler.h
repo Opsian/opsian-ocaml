@@ -15,16 +15,11 @@ const int NUMBER_OF_INTERVALS = 1024;
 
 class SignalHandler {
 public:
-    SignalHandler(const int samplingIntervalMin, const int samplingIntervalMax) {
-        intervalIndex = 0;
-        timingIntervals = new int[NUMBER_OF_INTERVALS];
-        srand (time(NULL));
-        int range = samplingIntervalMax - samplingIntervalMin + 1;
-        for (int i = 0; i < NUMBER_OF_INTERVALS; i++) {
-            timingIntervals[i] = samplingIntervalMin + rand() % range;
-        }
-        currentInterval = 0;
-        isProfiling_ = false;
+    SignalHandler()
+    : currentProcessInterval_(0),
+      isProcessProfiling_(false),
+      currentElapsedInterval_(0),
+      isElapsedProfiling_(false) {
     }
 
     /**
@@ -39,26 +34,25 @@ public:
 
     struct sigaction SetAction(int signalNumber, int maskedSignalNumber, int maskedSignalNumber2, void (*sigaction)(int, siginfo_t *, void *));
 
-    bool updateSigprofInterval();
+    bool updateProcessInterval(int);
 
-    bool updateSigprofInterval(int);
+    bool stopProcessProfiling();
 
-    bool stopSigprof();
+    bool isProcessProfiling() const;
 
-    bool isProfiling() const;
+    bool updateElapsedInterval(int);
 
-    ~SignalHandler() {
-        delete[] timingIntervals;
-    }
+    bool stopElapsedProfiling();
+
+    bool isElapsedProfiling() const;
 
 private:
-    int intervalIndex;
-    int *timingIntervals;
-    int currentInterval;
-    bool isProfiling_;
+    int currentProcessInterval_;
+    bool isProcessProfiling_;
+    int currentElapsedInterval_;
+    bool isElapsedProfiling_;
 
     DISALLOW_COPY_AND_ASSIGN(SignalHandler);
 };
 
 #endif // SIGNAL_HANDLER_H
-

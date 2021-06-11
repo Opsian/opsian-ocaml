@@ -32,13 +32,7 @@ void parseArguments(char *options, ConfigurationOptions &configuration) {
             continue;
         } else {
             value++;
-            if (strstr(key, "__intervalMin") == key) {
-                configuration.samplingIntervalMin = atoi(value);
-            } else if (strstr(key, "__intervalMax") == key) {
-                configuration.samplingIntervalMax = atoi(value);
-            } else if (strstr(key, "__interval") == key) {
-                configuration.samplingIntervalMin = configuration.samplingIntervalMax = atoi(value);
-            } else if (strstr(key, "__logPath") == key) {
+            if (strstr(key, "__logPath") == key) {
                 assign_range(value, next, configuration.logFilePath);
             } else if (strstr(key, "__maxFrames") == key) {
                 configuration.maxFramesToCapture = atoi(value);

@@ -1,9 +1,5 @@
 
-(* TODO: add programs to sleep, work and intermingle a combination, as well as FFI, multiple threads, blocking on locks, etc. *)
-
-(*let () =
-  print_endline "Starting sleep example";;
-  Unix.sleep(30);;*)
+(* TODO: add programs to intermingle a combination, as well as FFI, multiple threads, blocking on locks, etc. *)
 
 let d n =
   (*Unix.sleepf 0.0101;*)
@@ -46,6 +42,11 @@ let threads () =
     Thread.join t2;
   Printf.printf "Done!\n%!"
 
+let sleep () =
+  Printf.printf "Starting sleep\n%!";
+  Unix.sleep(30);
+  Printf.printf "Done!\n%!"
+
 let () =
   Printf.printf "Running example with:";
   Array.iter print_endline Sys.argv;
@@ -55,5 +56,6 @@ let () =
   [] -> work ()
   | "threads"::[] -> threads ()
   | "work"::[] -> work ()
+  | "sleep"::[] -> sleep ()
   | _ -> Printf.printf "Unknown \n";
 

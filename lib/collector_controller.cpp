@@ -93,23 +93,22 @@ CollectorController::onSampleRate(
     if (switchProcessTimeProfilingOn) {
         if (processTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
         {
-            signalHandler_.updateSigprofInterval(static_cast<int>(processTimeStackSampleRateMillis));
+            signalHandler_.updateProcessInterval(static_cast<int>(processTimeStackSampleRateMillis));
             processTimeStackSampleIntervalMillis_ = processTimeStackSampleRateMillis;
         }
-    } else if (signalHandler_.isProfiling()) {
-        signalHandler_.stopSigprof();
+    } else if (signalHandler_.isProcessProfiling()) {
+        signalHandler_.stopProcessProfiling();
     }
 
-    /* Re-enable this when we support wallclock profiling on ocaml
     if (switchElapsedTimeProfilingOn) {
         if (elapsedTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
         {
-            threadScanner_.updateScanInterval(static_cast<const int>(elapsedTimeStackSampleRateMillis));
+            signalHandler_.updateElapsedInterval(static_cast<const int>(elapsedTimeStackSampleRateMillis));
             elapsedTimeStackSampleIntervalMillis_ = elapsedTimeStackSampleRateMillis;
         }
-    } else if (threadScanner_.isProfiling()) {
-        threadScanner_.stopScanning();
-    }*/
+    } else if (signalHandler_.isElapsedProfiling()) {
+        signalHandler_.stopElapsedProfiling();
+    }
 
     /* Re-enable this when we support memory profiling on ocaml
     if (switchMemoryProfilingOn) {
@@ -172,7 +171,8 @@ void CollectorController::onStart() {
 }
 
 void CollectorController::onEnd() {
-    signalHandler_.stopSigprof();
+    signalHandler_.stopProcessProfiling();
+    signalHandler_.stopElapsedProfiling();
     /*if (memoryProfilingOn_) {
         MemoryProfiler::stop();
     }*/

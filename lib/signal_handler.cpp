@@ -2,35 +2,61 @@
 
 const int NOT_PROFILING = 0;
 
-bool SignalHandler::updateSigprofInterval() {
-    bool res = updateSigprofInterval(timingIntervals[intervalIndex]);
-    intervalIndex = (intervalIndex + 1) % NUMBER_OF_INTERVALS;
-    return res;
-}
+bool updateInterval(
+    const int timingIntervalInMillis,
+    const __itimer_which_t whichTimer,
+    const int currentIntervalInMillis) {
 
-bool SignalHandler::updateSigprofInterval(const int timingIntervalInMillis) {
-    if (timingIntervalInMillis == currentInterval)
+    if (timingIntervalInMillis == currentIntervalInMillis)
         return true;
+
     static struct itimerval timer;
     timer.it_interval.tv_sec = timingIntervalInMillis / 1000;
     timer.it_interval.tv_usec = (timingIntervalInMillis * 1000) % 1000000;
     timer.it_value = timer.it_interval;
 
-    if (setitimer(ITIMER_PROF, &timer, 0) == -1) {
+    if (setitimer(whichTimer, &timer, 0) == -1) {
         logError("Scheduling profiler interval failed with error %d\n", errno);
         return false;
     }
-    currentInterval = timingIntervalInMillis;
-    isProfiling_ = timingIntervalInMillis != NOT_PROFILING;
+
     return true;
 }
 
-bool SignalHandler::stopSigprof() {
-    return updateSigprofInterval(NOT_PROFILING);
+bool SignalHandler::updateProcessInterval(const int timingIntervalInMillis) {
+    if (!updateInterval(timingIntervalInMillis, ITIMER_PROF, currentProcessInterval_)) {
+        return false;
+    }
+
+    currentProcessInterval_ = timingIntervalInMillis;
+    isProcessProfiling_ = timingIntervalInMillis != NOT_PROFILING;
+    return true;
 }
 
-bool SignalHandler::isProfiling() const {
-    return isProfiling_;
+bool SignalHandler::stopProcessProfiling() {
+    return updateProcessInterval(NOT_PROFILING);
+}
+
+bool SignalHandler::isProcessProfiling() const {
+    return isProcessProfiling_;
+}
+
+bool SignalHandler::updateElapsedInterval(const int timingIntervalInMillis) {
+    if (!updateInterval(timingIntervalInMillis, ITIMER_REAL, currentElapsedInterval_)) {
+        return false;
+    }
+
+    currentElapsedInterval_ = timingIntervalInMillis;
+    isElapsedProfiling_ = timingIntervalInMillis != NOT_PROFILING;
+    return true;
+}
+
+bool SignalHandler::stopElapsedProfiling() {
+    return updateProcessInterval(NOT_PROFILING);
+}
+
+bool SignalHandler::isElapsedProfiling() const {
+    return isElapsedProfiling_;
 }
 
 struct sigaction SignalHandler::SetAction(
