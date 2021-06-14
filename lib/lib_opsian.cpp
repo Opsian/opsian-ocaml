@@ -76,6 +76,12 @@ void substitute_option(
     }
 }
 
+
+/*
+ * If you use £{EXE_NAME} in your options strings then it should sub in the process name.
+ * For example "debugLogPath=£{EXE_NAME}-debug.log" with a program whose executable command is
+ * "./_build/default/examples/opsian_examples.exe" results in a debug log file of "opsian_examples_exe-debug.log"
+ */
 void substitute_options(
     ConfigurationOptions* configuration,
     const char* ocaml_executable_name,
