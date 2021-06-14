@@ -3,12 +3,15 @@
 #include <cstdlib>
 #include "unistd.h"
 #include <google/protobuf/util/delimited_message_util.h>
+#include <google/protobuf/stubs/common.h>
 #include "network.h"
 #include <cstdint>
 #include <stdio.h>
 #include <pthread.h>
+#include <string.h>
 
 using google::protobuf::util::SerializeDelimitedToZeroCopyStream;
+using google::protobuf::internal::IsStructurallyValidUTF8;
 
 using std::copy;
 using data::SampleTimeType;
@@ -195,7 +198,9 @@ void LogWriter::threadName(pthread_t threadId, data::StackSample* stackSample) {
         stackSample->set_thread_name(info.name);
     } else {
         const char* thread_name;
+
         char buf[THREAD_NAME_BUFFER_SIZE];
+        size_t len;
         int ret = pthread_getname_np(threadId, buf, THREAD_NAME_BUFFER_SIZE);
         if (ret < 0) {
             if (ret == ERANGE) {
@@ -206,11 +211,20 @@ void LogWriter::threadName(pthread_t threadId, data::StackSample* stackSample) {
                                          "unknown error from pthread_getname_np: ", ret);
             }
             thread_name = "Unknown";
+            len = 7;
         } else {
             thread_name = buf;
+            len = strnlen(thread_name, THREAD_NAME_BUFFER_SIZE);
         }
 
-        stackSample->set_thread_name(thread_name);
+        if (!IsStructurallyValidUTF8(thread_name, len)) {
+            logError("Invalid thread name returned from pthread_getname_np '%s'", thread_name);
+
+            thread_name = "Invalid";
+            len = 7;
+        }
+
+        stackSample->set_thread_name(thread_name, len);
         ThreadInformation threadInformation = {
             threadId,
             thread_name
