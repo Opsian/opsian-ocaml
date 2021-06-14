@@ -69,7 +69,7 @@ void LogWriter::recordStackTrace(
         int threadState,
         int wallclockScanId,
         uint64_t time_tsc) {
-    debugLogger_ << "start record" << endl;
+    debugLogger_ << "start record, capture time = (" << time_tsc << ")" << endl;
 
     data::StackSample* stackSample = frameAgentEnvelope_.mutable_stack_sample();
     setSampleType(signum, stackSample);

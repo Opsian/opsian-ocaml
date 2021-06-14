@@ -1,0 +1,6 @@
+#!/bin/sh
+
+FILE=$1
+
+grep 'start record,' "$FILE" | perl -pe 's/.*?time = \(//;s/\).*//'
+
