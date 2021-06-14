@@ -93,7 +93,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
             }
 
             // The first ocaml frame descriptor attempt may fail because Ocaml doesn't generate frame descriptors at
-            // all points in the program.
+            // all points in the program. So we just let lib_unwind have another go.
             if (!first_ocaml_frame) {
                 break;
             }

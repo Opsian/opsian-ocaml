@@ -5,7 +5,7 @@
 #include <signal.h>
 #include "caml/mlvalues.h"
 
-extern "C" CAMLprim void start_opsian_native(value ocamlVersionStr);
+extern "C" CAMLprim void start_opsian_native(value ocaml_version_str, value ocaml_executable_name_str);
 
 // Guards deletion of prof against thread start/end
 #if defined(PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP)
@@ -65,6 +65,39 @@ void parseArguments(char *options, ConfigurationOptions &configuration) {
     }
 }
 
+void substitute_option(
+    std::string& value,
+    const std::string& search,
+    const std::string& replace) {
+    size_t pos = 0;
+    while ((pos = value.find(search, pos)) != std::string::npos) {
+        value.replace(pos, search.length(), replace);
+        pos += replace.length();
+    }
+}
+
+void substitute_options(
+    ConfigurationOptions* configuration,
+    const char* ocaml_executable_name,
+    const size_t ocaml_executable_name_len) {
+
+    string substitution_value(ocaml_executable_name, ocaml_executable_name_len);
+    size_t last_slash = substitution_value.find_last_of('/');
+    if (last_slash != std::string::npos) {
+        substitution_value.erase(0, last_slash + 1);
+    }
+    substitute_option(substitution_value, ".", "_");
+
+    string substitution_variable = "£{EXE_NAME}";
+
+    substitute_option(configuration->logFilePath, substitution_variable, substitution_value);
+    substitute_option(configuration->errorLogPath, substitution_variable, substitution_value);
+    substitute_option(configuration->debugLogPath, substitution_variable, substitution_value);
+    substitute_option(configuration->customCertificateFile, substitution_variable, substitution_value);
+    substitute_option(configuration->agentId, substitution_variable, substitution_value);
+
+}
+
 void crashHandler(int sig) {
     const int MAX_BT_SIZE = 20;
     void *array[MAX_BT_SIZE];
@@ -78,10 +111,12 @@ void crashHandler(int sig) {
     exit(1);
 }
 
-CAMLprim void start_opsian_native(value ocamlVersionStr) {
+CAMLprim void start_opsian_native(value ocaml_version_str, value ocaml_executable_name_str) {
     signal(SIGSEGV, crashHandler);
 
-    const char* ocamlVersion = String_val(ocamlVersionStr);
+    const char* ocaml_version = String_val(ocaml_version_str);
+    const char* ocaml_executable_name = String_val(ocaml_executable_name_str);
+    const size_t ocaml_executable_name_len = caml_string_length(ocaml_executable_name_str);
 
     std::istringstream(AGENT_VERSION_STR) >> AGENT_VERSION;
 
@@ -93,6 +128,9 @@ CAMLprim void start_opsian_native(value ocamlVersionStr) {
 
     CONFIGURATION = new ConfigurationOptions();
     parseArguments(options, *CONFIGURATION);
+    substitute_options(CONFIGURATION, ocaml_executable_name, ocaml_executable_name_len);
+
+    printf("OPTS: '%s' '%s' '%s'\n", CONFIGURATION->customCertificateFile.c_str(), CONFIGURATION->agentId.c_str(), CONFIGURATION->debugLogPath.c_str());
 
     const std::string& errorLogPath = CONFIGURATION->errorLogPath;
     if (!errorLogPath.empty()) {
@@ -100,7 +138,7 @@ CAMLprim void start_opsian_native(value ocamlVersionStr) {
         ERROR_FILE = new ofstream(errorLogPath);
     }
 
-    prof = new Profiler(CONFIGURATION, threadLock, ocamlVersion);
+    prof = new Profiler(CONFIGURATION, threadLock, ocaml_version);
     prof->start();
 }
 
