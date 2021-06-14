@@ -130,8 +130,6 @@ CAMLprim void start_opsian_native(value ocaml_version_str, value ocaml_executabl
     parseArguments(options, *CONFIGURATION);
     substitute_options(CONFIGURATION, ocaml_executable_name, ocaml_executable_name_len);
 
-    printf("OPTS: '%s' '%s' '%s'\n", CONFIGURATION->customCertificateFile.c_str(), CONFIGURATION->agentId.c_str(), CONFIGURATION->debugLogPath.c_str());
-
     const std::string& errorLogPath = CONFIGURATION->errorLogPath;
     if (!errorLogPath.empty()) {
         // never de-allocated, lives the life of the program
