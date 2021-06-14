@@ -49,7 +49,11 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
     while (num_frames < MAX_FRAMES) {
         ret = unw_step(&cursor);
 
-        if (ret <= 0) {
+        if (ret == 0) {
+            break;
+        }
+
+        if (ret < 0) {
             holder->type = STEP_FAIL;
             holder->errorCode = ret;
             break;
@@ -67,6 +71,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
         num_frames += 1;
 
         if (frag != NULL) {
+            bool first_ocaml_frame = true;
             uint64_t pc;
             char* sp;
 
@@ -80,12 +85,18 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
                     break;
                 }
 
+                first_ocaml_frame = false;
+
                 frames[num_frames].frame = pc;
                 frames[num_frames].isForeign = false;
                 num_frames += 1;
             }
 
-            break;
+            // The first ocaml frame descriptor attempt may fail because Ocaml doesn't generate frame descriptors at
+            // all points in the program.
+            if (!first_ocaml_frame) {
+                break;
+            }
         }
     }
 
