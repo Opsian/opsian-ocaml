@@ -38,5 +38,5 @@ lib/globals.cpp
 Makefile
 
 # outpu
-debug.log
+*debug.log
 
