@@ -42,9 +42,10 @@ bool SignalHandler::isProcessProfiling() const {
 }
 
 bool SignalHandler::updateElapsedInterval(const int timingIntervalInMillis) {
-    if (!updateInterval(timingIntervalInMillis, ITIMER_REAL, currentElapsedInterval_)) {
+    // TODO: re-enable this once we're happy
+    /*if (!updateInterval(timingIntervalInMillis, ITIMER_REAL, currentElapsedInterval_)) {
         return false;
-    }
+    }*/
 
     currentElapsedInterval_ = timingIntervalInMillis;
     isElapsedProfiling_ = timingIntervalInMillis != NOT_PROFILING;

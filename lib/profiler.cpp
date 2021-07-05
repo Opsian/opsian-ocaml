@@ -10,6 +10,7 @@
 #include <ucontext.h>
 #include <unistd.h>
 #include <libunwind.h>
+#include <sys/syscall.h>
 
 #ifdef __x86_64
 /* Only for _rdstc */
@@ -83,13 +84,12 @@ void Profiler::handle(int signum, void* context) {
     uint64_t stack_ts = _rdtsc();
 
     if (errorHolder.type == SUCCESS) {
-        // TODO: re-add when we use wallclock
-        // const int wallclockScanId = wallclockScanId_.load(std::memory_order::memory_order_relaxed);
+        const int wallclockScanId = wallclockScanId_.load(std::memory_order::memory_order_relaxed);
         CallTrace trace;
         trace.frames = frames;
         trace.num_frames = num_frames;
         trace.threadId = pthread_self();
-        const bool enqueued = buffer->pushStackTrace(trace, signum, 0, 0, stack_ts - start_ts);
+        const bool enqueued = buffer->pushStackTrace(trace, signum, 0, wallclockScanId, stack_ts - start_ts);
         if (!enqueued) {
             if (signum == SIGPROF) {
                 CircularQueue::cputimeFailures++;

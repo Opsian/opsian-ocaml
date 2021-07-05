@@ -7,6 +7,8 @@
 
 #include <sys/types.h>
 
+#include "proc_scanner.h"
+
 static const string DURATION_NAME = "opsian.metrics.read_duration";
 static const uint32_t DURATION_ID = 1;
 static const uint32_t NANOS_IN_SECOND = 1000000000;
@@ -193,9 +195,15 @@ void Metrics::run() {
     try {
         InternalDataListener metricListener(metricNameToId, queue_);
 
+        metrics_thread_id = getTid();
+        metrics_thread_started.store(true);
+
+        scan_threads();
         while (true) {
             uint64_t durationInMs = sampleRateMillis_.load();
             sleep_ms(durationInMs);
+
+            scan_threads();
 
             // NB: Don't holding the readersMutex when enqueuing because the retrying of the queue can
             // deadlock with the processor thread.

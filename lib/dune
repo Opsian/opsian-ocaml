@@ -56,7 +56,7 @@
  (library_flags -linkall)
  (foreign_stubs
   (language c)
-  (names linkable_profiler))
+  (names linkable_profiler pthread_interpose))
  (foreign_stubs
   (language cxx)
   ; We refence an extra dep here, even though dune will pick it up at the linking step, so that the header files are downloaded
@@ -76,6 +76,7 @@
     profiler
     processor
     protocol_handler
+    proc_scanner
     signal_handler)
   (flags
     -Ideps/protobuf/include

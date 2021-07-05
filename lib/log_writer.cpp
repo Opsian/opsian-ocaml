@@ -198,6 +198,8 @@ void LogWriter::recordStackTrace(
     setSampleType(signum, stackSample);
     setSampleTime(ts, stackSample);
 
+    printf("%d %lu\n", signum, trace.threadId);
+
     threadName(trace.threadId, stackSample);
 
     stackSample->set_thread_state(threadState);
@@ -242,7 +244,7 @@ void LogWriter::recordStackTrace(
 
     stackSample->set_has_max_frames(numFrames >= MAX_FRAMES);
 
-    // printf("\n\n");
+    printf("\n\n");
 
     recordWithSize(frameAgentEnvelope_);
 
@@ -309,6 +311,7 @@ void LogWriter::threadName(pthread_t threadId, data::StackSample* stackSample) {
         } else {
             thread_name = buf;
             len = strnlen(thread_name, THREAD_NAME_BUFFER_SIZE);
+            printf("%lu: %s\n", threadId, buf);
         }
 
         if (!IsStructurallyValidUTF8(thread_name, len)) {

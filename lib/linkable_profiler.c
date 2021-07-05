@@ -68,8 +68,11 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
         frag = caml_find_code_fragment_by_pc((char*) uw_ip);
         frames[num_frames].isForeign = frag == NULL;
 
+//        printf("%lu \n", (uint64_t) uw_ip);
+
         num_frames += 1;
 
+        // Sadiq: Comment out this block in order to see libunwind equivalent.
         if (frag != NULL) {
             bool first_ocaml_frame = true;
             uint64_t pc;
@@ -80,6 +83,8 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
 
             while (num_frames < MAX_FRAMES) {
                 frame_descr* fd = caml_next_frame_descriptor(&pc, &sp);
+
+//                printf("%lu %lu \n", (uint64_t) uw_ip, (uintptr_t) fd);
 
                 if (fd == NULL) {
                     break;

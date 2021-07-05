@@ -91,7 +91,8 @@ CollectorController::onSampleRate(
     if (switchProcessTimeProfilingOn) {
         if (processTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
         {
-            signalHandler_.updateProcessInterval(static_cast<int>(processTimeStackSampleRateMillis));
+            // TODO: re-enable somehow with the timer create method
+//            signalHandler_.updateProcessInterval(static_cast<int>(processTimeStackSampleRateMillis));
             processTimeStackSampleIntervalMillis_ = processTimeStackSampleRateMillis;
         }
     } else if (signalHandler_.isProcessProfiling()) {
@@ -101,7 +102,8 @@ CollectorController::onSampleRate(
     if (switchElapsedTimeProfilingOn) {
         if (elapsedTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
         {
-            signalHandler_.updateElapsedInterval(static_cast<const int>(elapsedTimeStackSampleRateMillis));
+            // TODO: re-enable somehow with the timer create method
+//            signalHandler_.updateElapsedInterval(static_cast<const int>(elapsedTimeStackSampleRateMillis));
             elapsedTimeStackSampleIntervalMillis_ = elapsedTimeStackSampleRateMillis;
         }
     } else if (signalHandler_.isElapsedProfiling()) {
