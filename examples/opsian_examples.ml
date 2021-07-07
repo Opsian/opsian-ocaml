@@ -3,18 +3,18 @@ let d n =
   n + 7
   [@@inline never]
 
-let normal_c n =
-  let n2 = ref 0 in
+let normal_c n2 n =
     for x = 0 to 1_000_000 do
       n2 := !n2 + n * d x
-    done;
-    !n2
+    done
   [@@inline never]
 
 (* Function is always inlined in order to test out the debug information around inlining *)
 (* TODO: do work that is always done, put a local variable behind an opaque identity *)
 let inlined_c n =
-  normal_c n
+  let n2 = ref 0 in
+    normal_c n2 n;
+  !n2
   [@@inline always]
 
 let b n =
