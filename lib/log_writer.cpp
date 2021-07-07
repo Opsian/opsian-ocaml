@@ -141,8 +141,7 @@ int LogWriter::handlePcInfo(uintptr_t pc, const char* btFileName, int lineNumber
     };
     currentLocations_->push_back(location);
 
-    // TODO: better debug logging
-    // printf("%lu '%s' '%s'\n", pc, functionName.c_str(), fileName.c_str());
+    debugLogger_ << "PcInfo Lookup: pc=" << pc << ",func=" << functionName << ",file=" << fileName << endl;
 
     return 0;
 }
@@ -173,7 +172,7 @@ void LogWriter::handleSyminfo(uintptr_t pc, const char* btSymbolName, uintptr_t 
     // Always copy char* value
     if (btSymbolName != NULL) {
         currentSymbolName_ = btSymbolName;
-        // printf("handleSyminfo: %s\n", btSymbolName);
+        debugLogger_ << "SymInfo Lookup: pc=" << pc << ",sym=" << btSymbolName << endl;
     }
 }
 
@@ -241,8 +240,6 @@ void LogWriter::recordStackTrace(
     }
 
     stackSample->set_has_max_frames(numFrames >= MAX_FRAMES);
-
-    // printf("\n\n");
 
     recordWithSize(frameAgentEnvelope_);
 
