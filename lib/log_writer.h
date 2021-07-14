@@ -17,9 +17,6 @@
 #include <boost/functional/hash.hpp>
 #include <boost/asio.hpp>
 
-#define UNW_LOCAL_ONLY
-#include <libunwind.h>
-
 using std::unordered_set;
 using std::unordered_map;
 using std::vector;
@@ -172,11 +169,6 @@ private:
     void recordWithSize(data::AgentEnvelope& envelope);
 
     void initLibBackTrace();
-
-    /*void recordFrame(
-        jint bci,
-        jmethodID methodId,
-        data::CompressedFrameEntry* frameEntry);*/
 
     void setSampleTime(const timespec &ts, data::StackSample *stackSample) const;
 

@@ -10,7 +10,6 @@ let normal_c n2 n =
   [@@inline never]
 
 (* Function is always inlined in order to test out the debug information around inlining *)
-(* TODO: do work that is always done, put a local variable behind an opaque identity *)
 let inlined_c n =
   let n2 = ref 0 in
     normal_c n2 n;

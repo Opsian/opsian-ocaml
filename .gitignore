@@ -7,6 +7,9 @@
 *.cmx
 *.cmxs
 *.cmxa
+*.so
+*~
+*.cache
 .vscode
 
 # ocamlbuild working directory
@@ -32,17 +35,13 @@ _opam/
 .idea
 *.swp
 
-# Dependencies
-lib/deps/boost/
-lib/deps/openssl/
-lib/deps/protobuf/
-
 # generated code
 lib/data.pb.cc
 lib/data.pb.h
 lib/protoc
 lib/globals.cpp
 Makefile
+lib/libunwind.h
 
 # output
 *debug.log

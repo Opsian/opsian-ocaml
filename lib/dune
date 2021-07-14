@@ -1,41 +1,101 @@
 
-(include_subdirs unqualified)
-
 (data_only_dirs deps)
 
+; libbacktrace
 (rule
- (deps (source_tree deps))
- (mode (promote (until-clean)))
- (targets
-  libprotobuf.a
-  libboost_chrono.a
-  libboost_date_time.a
-  libboost_system.a
-  libboost_thread.a
-  libcrypto.a
-  libssl.a
-  protoc
-  libbacktrace.a)
+ (deps (source_tree deps/libbacktrace))
+ (mode (promote (until-clean) (only libbacktrace.a dllbacktrace.so)))
+ (targets libbacktrace.a dllbacktrace.so)
  (action
   (no-infer
    (progn
     (chdir deps/libbacktrace (progn
-         (run ./configure)
-         (run make)))
-    (chdir deps (run ./download_and_build.sh))
-    (copy deps/protobuf/lib/libprotobuf.a libprotobuf.a)
+     (run ./configure "CFLAGS=-fPIC" --enable-shared)
+     (run make)))
+    (copy deps/libbacktrace/.libs/libbacktrace.so dllbacktrace.so)
+    (copy deps/libbacktrace/.libs/libbacktrace.a libbacktrace.a)))))
+
+; libunwind
+(rule
+ (deps (source_tree deps/libunwind))
+ (mode (promote (until-clean) (only libunwind.a dllunwind.so libunwind.h)))
+ (targets libunwind.a dllunwind.so libunwind.h)
+ (action
+  (no-infer
+   (progn
+    (chdir deps/libunwind (progn
+     (run ./autogen.sh)
+     (run ./configure "CFLAGS=-fPIC")
+     (run make)))
+    (copy deps/libunwind/include/libunwind.h libunwind.h)
+    (copy deps/libunwind/src/.libs/libunwind.so dllunwind.so)
+    (copy deps/libunwind/src/.libs/libunwind.a libunwind.a)))))
+
+; protobuf
+(rule
+ (deps (source_tree deps/protobuf))
+ (mode (promote (until-clean) (only libprotobuf.a dllprotobuf.so protoc)))
+ (targets libprotobuf.a dllprotobuf.so protoc)
+ (action
+  (no-infer
+   (progn
+    (chdir deps/protobuf (progn
+     (run chmod +w src/google/protobuf/compiler/js/well_known_types_embed.cc)
+     (run ./configure "CFLAGS=-fPIC" "CXXFLAGS=-fPIC" --disable-shared DIST_LANG=cpp)
+     (run make -s -j6)))
+    (copy deps/protobuf/src/protoc protoc)
+    (chdir deps/protobuf (progn
+     (run make clean)
+     (run ./configure "CFLAGS=-fPIC" "CXXFLAGS=-fPIC" DIST_LANG=cpp)
+     (run make -s -j6)))
+    (copy deps/protobuf/src/.libs/libprotobuf.a libprotobuf.a)
+    (copy deps/protobuf/src/.libs/libprotobuf.so dllprotobuf.so)))))
+
+; openssl
+(rule
+ (deps (source_tree deps/openssl))
+ (mode (promote (until-clean) (only libcrypto.a libssl.a dllcrypto.so dllssl.so)))
+ (targets libcrypto.a libssl.a dllcrypto.so dllssl.so)
+ (action
+  (no-infer
+   (progn
+    (chdir deps/openssl (progn
+     (run ./config)
+     (run make -s)))
+    (copy deps/openssl/libcrypto.a libcrypto.a)
+    (copy deps/openssl/libssl.a libssl.a)
+    (copy deps/openssl/libcrypto.so dllcrypto.so)
+    (copy deps/openssl/libssl.so dllssl.so)))))
+
+; boost
+(rule
+ (deps (source_tree deps/boost) (file deps/build-boost.sh))
+ (mode (promote (until-clean) (only libboost_chrono.a libboost_date_time.a libboost_system.a libboost_thread.a dllboost_chrono.so dllboost_date_time.so dllboost_system.so dllboost_thread.so)))
+ (targets
+  libboost_chrono.a
+  libboost_date_time.a
+  libboost_system.a
+  libboost_thread.a
+  dllboost_chrono.so
+  dllboost_date_time.so
+  dllboost_system.so
+  dllboost_thread.so)
+ (action
+  (no-infer
+   (progn
+    (chdir deps (run ./build-boost.sh))
     (copy deps/boost/lib/libboost_chrono.a libboost_chrono.a)
     (copy deps/boost/lib/libboost_date_time.a libboost_date_time.a)
     (copy deps/boost/lib/libboost_system.a libboost_system.a)
     (copy deps/boost/lib/libboost_thread.a libboost_thread.a)
-    (copy deps/openssl/lib/libcrypto.a libcrypto.a)
-    (copy deps/openssl/lib/libssl.a libssl.a)
-    (copy deps/protobuf/bin/protoc protoc)
-    (copy deps/libbacktrace/.libs/libbacktrace.a libbacktrace.a)))))
+    (copy deps/boost/stage/lib/libboost_chrono.so dllboost_chrono.so)
+    (copy deps/boost/stage/lib/libboost_date_time.so dllboost_date_time.so)
+    (copy deps/boost/stage/lib/libboost_system.so dllboost_system.so)
+    (copy deps/boost/stage/lib/libboost_thread.so dllboost_thread.so)))))
 
 (rule
  (deps protoc (file data.proto))
- (mode (promote (until-clean)))
+ (mode (promote (until-clean) (only data.pb.cc data.pb.h)))
  (targets data.pb.cc data.pb.h)
  (action
   (no-infer
@@ -50,17 +110,26 @@
     (run ./add_hashes.sh)))))
 
 (library
- (name lib_opsian)
- (public_name lib-opsian)
- (modules lib_opsian)
+ (name opsian)
+ (public_name opsian)
  (library_flags -linkall)
  (foreign_stubs
   (language c)
-  (names linkable_profiler))
+  (extra_deps
+    libunwind.a)
+  (names linkable_profiler)
+  (flags
+    -Ideps/libunwind/include))
  (foreign_stubs
   (language cxx)
-  ; We refence an extra dep here, even though dune will pick it up at the linking step, so that the header files are downloaded
-  (extra_deps libssl.a)
+  ; force rules to be built
+  (extra_deps
+    libboost_chrono.a
+    libboost_date_time.a
+    libboost_system.a
+    libboost_thread.a
+    libbacktrace.a
+    (source_tree deps/boost))
   (names
     circular_queue
     collector_controller
@@ -78,11 +147,57 @@
     protocol_handler
     signal_handler)
   (flags
-    -Ideps/protobuf/include
+    -Ideps/protobuf/src
     -Ideps/openssl/include
-    -Ideps/boost/include
+    -Ideps/libunwind/include
+    -Ideps/boost/libs/asio/include
+    -Ideps/boost/libs/chrono/include
+    -Ideps/boost/libs/random/include
+    -Ideps/boost/libs/format/include
+    -Ideps/boost/libs/convert/include
+    -Ideps/boost/libs/algorithm/include
+    -Ideps/boost/libs/container_hash/include
+    -Ideps/boost/libs/thread/include
+    -Ideps/boost/libs/lambda/include
+    -Ideps/boost/libs/foreach/include
+    -Ideps/boost/libs/bind/include
+    -Ideps/boost/libs/lexical_cast/include
+    -Ideps/boost/libs/iterator/include
+    ; internal boost deps from asio
+    -Ideps/boost/libs/config/include
+    -Ideps/boost/libs/system/include
+    -Ideps/boost/libs/throw_exception/include
+    -Ideps/boost/libs/assert/include
+    -Ideps/boost/libs/predef/include
+    -Ideps/boost/libs/mpl/include
+    -Ideps/boost/libs/preprocessor/include
+    -Ideps/boost/libs/ratio/include
+    -Ideps/boost/libs/type_traits/include
+    -Ideps/boost/libs/core/include
+    -Ideps/boost/libs/integer/include
+    -Ideps/boost/libs/static_assert/include
+    -Ideps/boost/libs/date_time/include
+    -Ideps/boost/libs/smart_ptr/include
+    -Ideps/boost/libs/utility/include
+    -Ideps/boost/libs/numeric/conversion/include
+    -Ideps/boost/libs/regex/include
+    -Ideps/boost/libs/detail/include
+    -Ideps/boost/libs/move/include
+    ; internal boost deps from format
+    -Ideps/boost/libs/optional/include
+    ; internal boost deps from lambda
+    -Ideps/boost/libs/tuple/include
+    ; internal boost deps from lexical_cast & foreach
+    -Ideps/boost/libs/range/include
+    ; internal boost deps from lexical_cast
+    -Ideps/boost/libs/concept_check/include
+    -Ideps/boost/libs/array/include
+    -Ideps/boost/libs/container/include
+    -Ideps/boost/libs/math/include
+    ; internal boost deps from algorithm
+    -Ideps/boost/libs/function/include
+    -Ideps/boost/libs/type_index/include
     -fPIC
-    -isystem deps/boost/include
     -pthread
     -Wall
     -Wformat-security
@@ -93,10 +208,10 @@
     -funsigned-char
     -std=c++0x
     -g))
- (foreign_archives protobuf boost_chrono boost_date_time boost_system boost_thread ssl crypto backtrace)
+ (foreign_archives protobuf boost_chrono boost_date_time boost_system boost_thread ssl crypto backtrace unwind)
  (c_library_flags (
-    -lunwind
     -lpthread
     -ldl
     -lrt
-    -lstdc++)))
+    -lstdc++
+    -llzma)))

@@ -69,7 +69,6 @@ void LogWriter::initLibBackTrace() {
     btState = backtrace_create_state(NULL, 0, _handleBtError, this);
 }
 
-// TODO: consider the case of the ocaml inlined function (no method id here)
 // In C code we get the file name, line number and function name via this callback
 // In Ocaml code we get the line number and file name via this callback and the function name via symInfo
 int LogWriter::handlePcInfo(uintptr_t pc, const char* btFileName, int lineNumber, const char* btFunctionName) {

@@ -1,0 +1,26 @@
+opam-version: "2.0"
+name: "opsian"
+version: "~dev"
+synopsis: "Low overhead profiling"
+maintainer: "Opsian <admin@opsian.com>"
+authors:
+  "Richard Warburton <richard@opsian.com>, Sadiq Jaffer <sadiq@opsian.com>"
+license: "MIT License"
+homepage: "https://github.com/Opsian/opsian-ocaml/wiki"
+bug-reports: "https://github.com/Opsian/opsian-ocaml/issues"
+depends: [
+  "dune" {>= "2.7"}
+  "ocaml" {>= "4.12.0"}
+  "conf-g++"    {build}
+]
+flags: [ verbose ]
+# for building native deps
+depexts: [
+  [ "libpthread-stubs0-dev" ] {os-distribution = "ubuntu" }
+  [ "libc6-dev" ] {os-distribution = "ubuntu" } # -ldl -lrt
+  [ "autoconf" ] {os-distribution = "ubuntu" }
+  [ "libtool" ] {os-distribution = "ubuntu" } # libunwind
+]
+build: ["dune" "build" "--release" "-j" jobs ]
+dev-repo: "git://git@github.com/Opsian/opsian-ocaml.git"
+

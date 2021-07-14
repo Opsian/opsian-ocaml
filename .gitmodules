@@ -1,3 +1,12 @@
 [submodule "lib/deps/libbacktrace"]
 	path = lib/deps/libbacktrace
 	url = git@github.com:ianlancetaylor/libbacktrace.git
+[submodule "lib/deps/openssl"]
+	path = lib/deps/openssl
+	url = git://git.openssl.org/openssl.git
+[submodule "lib/deps/boost"]
+	path = lib/deps/boost
+	url = git@github.com:boostorg/boost.git
+[submodule "lib/deps/libunwind"]
+	path = lib/deps/libunwind
+	url = https://github.com/libunwind/libunwind/
