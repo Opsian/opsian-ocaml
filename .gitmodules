@@ -3,7 +3,7 @@
 	url = https://github.com/ianlancetaylor/libbacktrace
 [submodule "lib/deps/openssl"]
 	path = lib/deps/openssl
-	url = https://git.openssl.org/openssl/
+	url = https://github.com/openssl/openssl
 [submodule "lib/deps/boost"]
 	path = lib/deps/boost
 	url = https://github.com/boostorg/boost/
