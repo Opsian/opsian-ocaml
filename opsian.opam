@@ -20,6 +20,7 @@ depexts: [
   [ "libc6-dev" ] {os-distribution = "ubuntu" } # -ldl -lrt
   [ "autoconf" ] {os-distribution = "ubuntu" }
   [ "libtool" ] {os-distribution = "ubuntu" } # libunwind
+  [ "liblzma-dev" ] {os-distribution = "ubuntu" }
 ]
 build: ["dune" "build" "--release" "-j" jobs ]
 dev-repo: "git://git@github.com/Opsian/opsian-ocaml.git"
