@@ -11,7 +11,8 @@ bug-reports: "https://github.com/Opsian/opsian-ocaml/issues"
 depends: [
   "dune" {>= "2.7"}
   "ocaml" {>= "4.12.0"}
-  "conf-g++"    {build}
+  # This is technically the right dependency but doesn't exist within tezos' repository
+  # "conf-g++"    {build} 
 ]
 flags: [ verbose ]
 # for building native deps
