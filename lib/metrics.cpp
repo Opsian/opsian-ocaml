@@ -1,4 +1,5 @@
 #include "metrics.h"
+#include "proc_scanner.h"
 
 #include <boost/functional/hash.hpp>
 #include <boost/thread/condition_variable.hpp>
@@ -193,6 +194,10 @@ void Metrics::run() {
     try {
         InternalDataListener metricListener(metricNameToId, queue_);
 
+        on_metrics_thread_start();
+
+        scan_threads();
+
         while (true) {
             uint64_t durationInMs = sampleRateMillis_.load();
             sleep_ms(durationInMs);
@@ -207,6 +212,8 @@ void Metrics::run() {
 
                 mustSendDurationMetric.store(false);
             }
+
+            scan_threads();
 
             {
                 // Take the lock because we're going to be using the readers

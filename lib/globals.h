@@ -45,8 +45,7 @@ extern uint32_t AGENT_VERSION;
 extern const std::string ON_PREM_HOST_DEFAULT;
 
 extern std::ostream* ERROR_FILE;
-// Declared here so that the error log can log to it
-// Try to avoid using this for anything else
+// Declared here so that the error log and proc scanner can log to it
 extern DebugLogger* _DEBUG_LOGGER;
 
 const char* const DEFAULT_HOST = "collector.opsian.com";

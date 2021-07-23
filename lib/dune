@@ -157,8 +157,10 @@
     profiler
     processor
     protocol_handler
+    proc_scanner
     signal_handler)
   (flags
+    -I.
     -Ideps/protobuf/src
     -Ideps/openssl/include
     -Ideps/libunwind/include

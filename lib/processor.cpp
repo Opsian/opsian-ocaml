@@ -2,6 +2,7 @@
 #include <iostream>
 #include "processor.h"
 #include "globals.h"
+#include "proc_scanner.h"
 
 const int MAX_POLLS = 10;
 
@@ -9,6 +10,7 @@ const uint64_t MIN_SLEEP_IN_MS = 2;
 const uint64_t MAX_SLEEP_IN_MS = 200;
 
 void Processor::run() {
+    on_processor_thread_start();
 
     collectorController_.onStart();
 
