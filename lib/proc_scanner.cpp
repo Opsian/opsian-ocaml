@@ -1,54 +1,136 @@
 #include "proc_scanner.h"
 #include "globals.h"
 #include "debug_logger.h"
+#include "limits.h"
 #include <dirent.h>
 #include <stdio.h>
 #include <unordered_set>
 #include <stdlib.h>
 
-std::unordered_set<pid_t> lastScanThreads{};
+#define MS_TO_NS 1000000
+#define NOT_SCANNING ULONG_MAX
 
-pid_t metrics_thread_id(0);
-pid_t processor_thread_id(0);
+std::unordered_set<pid_t> last_scan_threads_{};
+std::unordered_set<timer_t> timers_{};
 
-std::atomic_bool metrics_thread_started(false);
-std::atomic_bool processor_thread_started(false);
+pid_t metrics_thread_id_(0);
+pid_t processor_thread_id_(0);
 
-void start_timer(const pid_t tid, const clockid_t clock_type, const int signal_number, const long tv_nsec) {
-    int ret;
-    struct sigevent sevp;
-    timer_t timerid;
-    memset(&sevp, 0, sizeof(sevp));
-    sevp.sigev_notify = SIGEV_THREAD_ID; // for per-thread
-//    sevp.sigev_notify = SIGEV_SIGNAL; // for process-wide
-// NB: this is a workaround for sigev_notify_thread_id not being defined in signal.h despite the internal linux kernel data structures having that field.
-// See https://sourceware.org/bugzilla/show_bug.cgi?id=27417 for portable solution
-    sevp._sigev_un._tid = tid; // for per-thread
-    sevp.sigev_signo = signal_number;
-    ret = timer_create(clock_type, &sevp, &timerid);
+std::atomic_bool metrics_thread_started_(false);
+std::atomic_bool processor_thread_started_(false);
 
-    if (ret) {
-        logError("aborting due to timer_create error: %s", strerror(errno));
-    }
+std::atomic_uint64_t atomic_interval_in_ns_(NOT_SCANNING);
+uint64_t local_interval_in_ns_(NOT_SCANNING);
 
+// --------------------
+//   Processor Thread
+// --------------------
+
+void on_processor_thread_start() {
+    processor_thread_id_ = getTid();
+    processor_thread_started_.store(true);
+}
+
+bool is_scanning_threads() {
+    return atomic_interval_in_ns_.load() != NOT_SCANNING;
+}
+
+void update_scanning_threads_interval(const uint64_t interval_in_ms) {
+    atomic_interval_in_ns_.store(interval_in_ms * MS_TO_NS);
+}
+
+void stop_scanning_threads() {
+    update_scanning_threads_interval(NOT_SCANNING);
+}
+
+// -------------------
+//   Metrics Thread
+// -------------------
+
+void on_metrics_thread_start() {
+    metrics_thread_id_ = getTid();
+    metrics_thread_started_.store(true);
+}
+
+void set_timer_interval(const long interval_ns, const timer_t& timer_id) {
     struct itimerspec timerSpec;
     timerSpec.it_interval.tv_sec = 0;
-    timerSpec.it_interval.tv_nsec = tv_nsec;
+    timerSpec.it_interval.tv_nsec = interval_ns;
     timerSpec.it_value = timerSpec.it_interval;
-    ret = timer_settime(timerid, 0, &timerSpec, 0);
+    const int ret = timer_settime(timer_id, 0, &timerSpec, 0);
     if (ret) {
         logError("aborting due to timer_settime error: %s", strerror(errno));
     }
 }
 
-void start_profiling_thread(const pid_t tid) {
-    start_timer(tid, CLOCK_MONOTONIC, SIGALRM, 50000000);
+void start_timer(
+    const pid_t tid,
+    const clockid_t clock_type,
+    const int signal_number,
+    const long interval_ns) {
+
+    struct sigevent sevp;
+    timer_t timer_id;
+    memset(&sevp, 0, sizeof(sevp));
+    sevp.sigev_notify = SIGEV_THREAD_ID; // for per-thread
+    //    sevp.sigev_notify = SIGEV_SIGNAL; // for process-wide
+    // NB: this is a workaround for sigev_notify_thread_id not being defined in signal.h despite
+    // the internal linux kernel data structures having that field.
+    // See https://sourceware.org/bugzilla/show_bug.cgi?id=27417 for portable solution
+    sevp._sigev_un._tid = tid; // for per-thread
+    sevp.sigev_signo = signal_number;
+    constint ret = timer_create(clock_type, &sevp, &timer_id);
+    if (ret != 0) {
+        logError("aborting due to timer_create error: %s", strerror(errno));
+        return;
+    }
+
+    timers_.insert(timer_id);
+
+    set_timer_interval(interval_ns, timer_id);
+}
+
+void start_profiling_thread(const pid_t& tid) {
+    start_timer(tid, CLOCK_MONOTONIC, SIGALRM, local_interval_in_ns_);
     // We can use CLOCK_THREAD_CPUTIME_ID if we want to to do per thread CPU timers
 }
 
+void on_interval_change(const uint64_t atomic_interval_in_ns) {
+    const uint64_t old_local_interval_in_ns = local_interval_in_ns_;
+    local_interval_in_ns_ = atomic_interval_in_ns;
+
+    if (atomic_interval_in_ns == NOT_SCANNING) {
+        // printf("stop scanning, disabled and delete existing timers\n");
+        for (const timer_t& timer: timers_) {
+            timer_delete(timer);
+        }
+
+        timers_.clear();
+    } else if (old_local_interval_in_ns == NOT_SCANNING) {
+        // printf("start scanning, create timers\n");
+        for (const pid_t& thread: last_scan_threads_) {
+            start_profiling_thread(thread);
+        }
+    } else {
+        // printf("update timer intervals\n");
+        for (const timer_t& timer: timers_) {
+            set_timer_interval(local_interval_in_ns_, timer);
+        }
+    }
+}
+
 void scan_threads() {
-    if (metrics_thread_started.load() && processor_thread_started.load()) {
+    if (metrics_thread_started_.load() && processor_thread_started_.load()) {
         // Do it C-style to anticipate our migration over to C.
+
+        const uint64_t atomic_interval_in_ms = atomic_interval_in_ns_.load();
+        if (atomic_interval_in_ms != local_interval_in_ns_) {
+            on_interval_change(atomic_interval_in_ms);
+        }
+
+        if (local_interval_in_ns_ == NOT_SCANNING) {
+            return;
+        }
 
         DIR* task = opendir("/proc/self/task");
         if (!task) {
@@ -65,31 +147,21 @@ void scan_threads() {
             }
 
             pid_t pid = strtol(procThread->d_name, NULL, 0);
-            if (pid == metrics_thread_id || pid == processor_thread_id) {
+            if (pid == metrics_thread_id_ || pid == processor_thread_id_) {
                 continue;
             }
 
             currentThreads.insert(pid);
 
-            if (lastScanThreads.count(pid) == 0) {
+            if (last_scan_threads_.count(pid) == 0) {
                 *_DEBUG_LOGGER <<  "New Thread from /proc scanner: " << pid << endl;
 
                 start_profiling_thread(pid);
             }
         }
 
-        lastScanThreads = currentThreads;
+        last_scan_threads_ = currentThreads;
 
         closedir(task);
     }
-}
-
-void on_processor_thread_start() {
-    processor_thread_id = getTid();
-    processor_thread_started.store(true);
-}
-
-void on_metrics_thread_start() {
-    metrics_thread_id = getTid();
-    metrics_thread_started.store(true);
 }

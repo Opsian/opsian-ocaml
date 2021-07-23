@@ -1,6 +1,7 @@
 #include "collector_controller.h"
 
 #include "network.h"
+#include "proc_scanner.h"
 
 #include <boost/chrono.hpp>
 #include <boost/random/mersenne_twister.hpp>
@@ -97,15 +98,15 @@ void CollectorController::onSampleRate(
         signalHandler_.stopProcessProfiling();
     }
 
-    /*if (switchElapsedTimeProfilingOn) {
+    if (switchElapsedTimeProfilingOn) {
         if (elapsedTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
         {
-            // TODO: updateElapsedInterval(static_cast<const int>(elapsedTimeStackSampleRateMillis));
+            update_scanning_threads_interval(elapsedTimeStackSampleRateMillis);
             elapsedTimeStackSampleIntervalMillis_ = elapsedTimeStackSampleRateMillis;
         }
-    } else if (signalHandler_.isElapsedProfiling()) {
-        // TODO: stopElapsedProfiling();
-    }*/
+    } else if (is_scanning_threads()) {
+        stop_scanning_threads();
+    }
 
     if (switchMetricsOn) {
         if (metricsSampleRateMillis != DONT_CHANGE_SAMPLE_RATE) {
