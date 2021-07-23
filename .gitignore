@@ -42,6 +42,7 @@ lib/protoc
 lib/globals.cpp
 Makefile
 lib/libunwind.h
+lib/libunwind-common.h
 
 # output
 *debug.log

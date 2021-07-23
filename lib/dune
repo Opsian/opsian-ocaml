@@ -18,8 +18,17 @@
 ; libunwind
 (rule
  (deps (source_tree deps/libunwind))
- (mode (promote (until-clean) (only libunwind.a dllunwind.so libunwind.h)))
- (targets libunwind.a dllunwind.so libunwind.h)
+ (mode (promote (until-clean) (only
+  libunwind.a
+  dllunwind.so
+  libunwind.h
+  libunwind-common.h
+  )))
+ (targets
+  libunwind.a
+  dllunwind.so
+  libunwind.h
+  libunwind-common.h)
  (action
   (no-infer
    (progn
@@ -28,6 +37,7 @@
      (run ./configure "CFLAGS=-fPIC")
      (run make)))
     (copy deps/libunwind/include/libunwind.h libunwind.h)
+    (copy deps/libunwind/include/libunwind-common.h libunwind-common.h)
     (copy deps/libunwind/src/.libs/libunwind.so dllunwind.so)
     (copy deps/libunwind/src/.libs/libunwind.a libunwind.a)))))
 
@@ -116,10 +126,12 @@
  (foreign_stubs
   (language c)
   (extra_deps
-    libunwind.a)
+   libunwind.a
+   libunwind.h
+   libunwind-common.h
+    (source_tree deps/libunwind/include))
   (names linkable_profiler)
-  (flags
-    -Ideps/libunwind/include))
+  (flags -Ideps/libunwind/include/ -I.))
  (foreign_stubs
   (language cxx)
   ; force rules to be built
