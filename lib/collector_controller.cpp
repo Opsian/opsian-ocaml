@@ -73,20 +73,19 @@ void CollectorController::onTerminate() {
     onMessage();
 }
 
-void
-CollectorController::onSampleRate(
-        uint64_t processTimeStackSampleRateMillis,
-        uint64_t elapsedTimeStackSampleRateMillis,
-        bool switchProcessTimeProfilingOn,
-        bool switchElapsedTimeProfilingOn,
-        bool threadStateOn,
-        bool switchMemoryProfilingOn,
-        uint64_t memoryProfilingPushRateMillis,
-        bool switchMemoryProfilingStacktraceOn,
-        uint32_t memoryProfilingStackSampleRateSamples,
-        bool switchMetricsOn,
-        uint64_t metricsSampleRateMillis,
-        vector<string>& disabledMetricPrefixes) {
+void CollectorController::onSampleRate(
+    uint64_t processTimeStackSampleRateMillis,
+    uint64_t elapsedTimeStackSampleRateMillis,
+    bool switchProcessTimeProfilingOn,
+    bool switchElapsedTimeProfilingOn,
+    bool threadStateOn,
+    bool switchMemoryProfilingOn,
+    uint64_t memoryProfilingPushRateMillis,
+    bool switchMemoryProfilingStacktraceOn,
+    uint32_t memoryProfilingStackSampleRateSamples,
+    bool switchMetricsOn,
+    uint64_t metricsSampleRateMillis,
+    vector<string>& disabledMetricPrefixes) {
 
     if (switchProcessTimeProfilingOn) {
         if (processTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
@@ -98,15 +97,15 @@ CollectorController::onSampleRate(
         signalHandler_.stopProcessProfiling();
     }
 
-    if (switchElapsedTimeProfilingOn) {
+    /*if (switchElapsedTimeProfilingOn) {
         if (elapsedTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
         {
-            signalHandler_.updateElapsedInterval(static_cast<const int>(elapsedTimeStackSampleRateMillis));
+            // TODO: updateElapsedInterval(static_cast<const int>(elapsedTimeStackSampleRateMillis));
             elapsedTimeStackSampleIntervalMillis_ = elapsedTimeStackSampleRateMillis;
         }
     } else if (signalHandler_.isElapsedProfiling()) {
-        signalHandler_.stopElapsedProfiling();
-    }
+        // TODO: stopElapsedProfiling();
+    }*/
 
     if (switchMetricsOn) {
         if (metricsSampleRateMillis != DONT_CHANGE_SAMPLE_RATE) {
@@ -155,7 +154,6 @@ void CollectorController::onStart() {
 
 void CollectorController::onEnd() {
     signalHandler_.stopProcessProfiling();
-    signalHandler_.stopElapsedProfiling();
     /*if (memoryProfilingOn_) {
         MemoryProfiler::stop();
     }*/

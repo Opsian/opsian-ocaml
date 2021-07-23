@@ -17,9 +17,7 @@ class SignalHandler {
 public:
     SignalHandler()
     : currentProcessInterval_(0),
-      isProcessProfiling_(false),
-      currentElapsedInterval_(0),
-      isElapsedProfiling_(false) {
+      isProcessProfiling_(false) {
     }
 
     /**
@@ -40,17 +38,9 @@ public:
 
     bool isProcessProfiling() const;
 
-    bool updateElapsedInterval(int);
-
-    bool stopElapsedProfiling();
-
-    bool isElapsedProfiling() const;
-
 private:
     int currentProcessInterval_;
     bool isProcessProfiling_;
-    int currentElapsedInterval_;
-    bool isElapsedProfiling_;
 
     DISALLOW_COPY_AND_ASSIGN(SignalHandler);
 };

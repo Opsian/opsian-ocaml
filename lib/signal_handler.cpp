@@ -41,24 +41,6 @@ bool SignalHandler::isProcessProfiling() const {
     return isProcessProfiling_;
 }
 
-bool SignalHandler::updateElapsedInterval(const int timingIntervalInMillis) {
-    if (!updateInterval(timingIntervalInMillis, ITIMER_REAL, currentElapsedInterval_)) {
-        return false;
-    }
-
-    currentElapsedInterval_ = timingIntervalInMillis;
-    isElapsedProfiling_ = timingIntervalInMillis != NOT_PROFILING;
-    return true;
-}
-
-bool SignalHandler::stopElapsedProfiling() {
-    return updateProcessInterval(NOT_PROFILING);
-}
-
-bool SignalHandler::isElapsedProfiling() const {
-    return isElapsedProfiling_;
-}
-
 struct sigaction SignalHandler::SetAction(
     const int signalNumber,
     const int maskedSignalNumber,
