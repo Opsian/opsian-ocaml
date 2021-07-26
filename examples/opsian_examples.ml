@@ -67,6 +67,14 @@ let sleep () =
   Unix.sleep(30);
   Printf.printf "Done!\n%!"
 
+exception ForkFail of string
+let fork () =
+  Printf.printf "Starting fork\n%!";
+  match Unix.fork() with
+    | x when x < 0 -> raise (ForkFail ("Unable to fork: " ^ (string_of_int x)))
+    | 0 -> Printf.printf "In the child!\n%!"; do_work ()
+    | pid -> Printf.printf "Spawned: %d from %d \n%!" pid (Unix.getpid ()); do_work ()
+
 let () =
   Printf.printf "Running example with:";
   Array.iter print_endline Sys.argv;
@@ -78,5 +86,6 @@ let () =
   | "thread_cycler"::[] -> thread_cycler ()
   | "work"::[] -> work ()
   | "sleep"::[] -> sleep ()
+  | "fork"::[] -> fork ()
   | _ -> Printf.printf "Unknown \n";
 
