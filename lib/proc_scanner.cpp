@@ -79,7 +79,7 @@ void start_timer(
     // See https://sourceware.org/bugzilla/show_bug.cgi?id=27417 for portable solution
     sevp._sigev_un._tid = tid; // for per-thread
     sevp.sigev_signo = signal_number;
-    constint ret = timer_create(clock_type, &sevp, &timer_id);
+    const int ret = timer_create(clock_type, &sevp, &timer_id);
     if (ret != 0) {
         logError("aborting due to timer_create error: %s", strerror(errno));
         return;
