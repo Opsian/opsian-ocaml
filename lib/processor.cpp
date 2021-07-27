@@ -19,7 +19,7 @@ void Processor::run() {
     // Want to check isRunning after every sleep_ms
     while (collectorController_.isOn()) {
         bool doneWork = collectorController_.poll();
-        // poll() can sleep_ms as part of a reconnect backooff
+        // poll() can sleep_ms as part of a reconnect backoff
 
         doneWork |= network_.poll();
 
@@ -63,4 +63,8 @@ void Processor::start() {
     if (result) {
         logError("ERROR: failed to start processor thread %d\n", result);
     }
+}
+
+void Processor::on_fork() {
+    thread = 0;
 }

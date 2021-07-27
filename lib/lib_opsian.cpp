@@ -9,8 +9,17 @@
 extern "C" CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str);
 
+static char* OCAML_EXE_NAME;
+static size_t OCAML_EXE_NAME_LEN;
+
+static char* OCAML_ARGV0;
+static size_t OCAML_ARGV0_LEN;
+
+static char* OPTIONS;
 static ConfigurationOptions* CONFIGURATION;
 static Profiler* prof;
+
+void setup_configuration();
 
 void assign_range(char* value, char* next, std::string& to) {
     size_t size = (next == 0) ? strlen(value) : (size_t) (next - value);
@@ -94,14 +103,14 @@ void substitutePath(ConfigurationOptions* configuration, const char* name,
  * "./_build/default/examples/opsian_examples.exe" results in a debug log file of "opsian_examples_exe-debug.log"
  */
 void substitute_options(
-    ConfigurationOptions* configuration,
-    const char* ocaml_executable_name,
-    const size_t ocaml_executable_name_len,
-    const char* ocaml_argv0,
-    const size_t ocaml_argv0_len) {
+    ConfigurationOptions* configuration) {
 
-    substitutePath(configuration, ocaml_executable_name, ocaml_executable_name_len, "£{EXE_NAME}");
-    substitutePath(configuration, ocaml_argv0, ocaml_argv0_len, "£{ARGV_0}");
+    substitutePath(configuration, OCAML_EXE_NAME, OCAML_EXE_NAME_LEN, "£{EXE_NAME}");
+    substitutePath(configuration, OCAML_ARGV0, OCAML_ARGV0_LEN, "£{ARGV_0}");
+
+    char pid_buffer[100];
+    const int pid_len = snprintf(pid_buffer, 100, "%d", getpid());
+    substitutePath(configuration, pid_buffer, pid_len, "£{PID}");
 }
 
 void crashHandler(int sig) {
@@ -117,32 +126,53 @@ void crashHandler(int sig) {
     exit(1);
 }
 
+// ---------------------
+// BEGIN Fork Callbacks
+// ---------------------
+
+void prepare_fork() {
+    network_prepare_fork();
+}
+
+void parent_fork() {
+    *_DEBUG_LOGGER << "parent_fork " << getpid() << endl;
+    network_parent_fork();
+}
+
+void child_fork() {
+    setup_configuration();
+    _DEBUG_LOGGER->on_fork(CONFIGURATION->debugLogPath);
+    *_DEBUG_LOGGER << "child_fork " << getpid() << endl;
+    network_child_fork();
+    prof->on_fork();
+}
+
+// ---------------------
+// END Fork Callbacks
+// ---------------------
+
 CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str) {
     signal(SIGSEGV, crashHandler);
 
     const char* ocaml_version = String_val(ocaml_version_str);
 
-    const char* ocaml_executable_name = String_val(ocaml_executable_name_str);
-    const size_t ocaml_executable_name_len = caml_string_length(ocaml_executable_name_str);
+    OCAML_EXE_NAME = (char*) String_val(ocaml_executable_name_str);
+    OCAML_EXE_NAME_LEN = caml_string_length(ocaml_executable_name_str);
 
-    const char* ocaml_argv0 = String_val(ocaml_argv0_str);
-    const size_t ocaml_argv0_len = caml_string_length(ocaml_argv0_str);
+    OCAML_ARGV0 = (char*) String_val(ocaml_argv0_str);
+    OCAML_ARGV0_LEN = caml_string_length(ocaml_argv0_str);
 
     std::istringstream(AGENT_VERSION_STR) >> AGENT_VERSION;
 
-    char* options = getenv("OPSIAN_OPTS");
-    if (options == nullptr) {
+    OPTIONS = getenv("OPSIAN_OPTS");
+    if (OPTIONS == nullptr) {
         logError("Please set the environment variable 'OPSIAN_OPTS' in order to use Opsian\n");
         return;
     }
 
     CONFIGURATION = new ConfigurationOptions();
-    parseArguments(options, *CONFIGURATION);
-    substitute_options(
-        CONFIGURATION,
-        ocaml_executable_name, ocaml_executable_name_len,
-        ocaml_argv0, ocaml_argv0_len);
+    setup_configuration();
 
     const std::string& errorLogPath = CONFIGURATION->errorLogPath;
     if (!errorLogPath.empty()) {
@@ -151,7 +181,13 @@ CAMLprim void start_opsian_native(
     }
 
     prof = new Profiler(CONFIGURATION, ocaml_version);
+    pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
     prof->start();
+}
+
+void setup_configuration() {
+    parseArguments(OPTIONS, *CONFIGURATION);
+    substitute_options(CONFIGURATION);
 }
 
 void bootstrapHandle(int signum, siginfo_t *info, void *context) {

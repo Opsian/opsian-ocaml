@@ -21,4 +21,10 @@ void on_processor_thread_start();
 void on_metrics_thread_start();
 void scan_threads();
 
+// -------------------
+//   Fork Thread
+// -------------------
+
+void reset_scan_threads();
+
 #endif //OPSIAN_OCAML_PROC_SCANNER_H

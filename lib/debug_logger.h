@@ -15,16 +15,11 @@ public:
         const std::string& apiKey)
         : apiKey_(apiKey) {
 
-        if (path.empty()) {
-            stream_ = NULL;
-        } else {
-            stream_ = new ofstream();
-            stream_->open(path, std::ios::out | std::ios::trunc);
-        }
+        open(path);
     }
 
-    template <typename T>
-    DebugLogger& operator<<(T const & value) {
+    template<typename T>
+    DebugLogger& operator<<(const T& value) {
         if (stream_ != nullptr) {
             *stream_ << value;
         }
@@ -32,7 +27,7 @@ public:
     }
 
     // Simulate std::endl
-    DebugLogger& operator<<( DebugLogger& (*pf)(DebugLogger&) ) {
+    DebugLogger& operator<<(DebugLogger& (* pf)(DebugLogger&)) {
         if (stream_ != nullptr) {
             *stream_ << ' ';
             putFormattedTime(*stream_);
@@ -45,9 +40,13 @@ public:
 
     void writeLogStart();
 
+    void on_fork(const std::string& path);
+
     ~DebugLogger();
 
 private:
+    void open(const std::string& path);
+
     ofstream* stream_;
 
     const std::string apiKey_;

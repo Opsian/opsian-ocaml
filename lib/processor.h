@@ -17,7 +17,7 @@ public:
         Network& network,
         CollectorController& collectorController,
         DebugLogger& debugLogger)
-        : thread(),
+        : thread(0),
           logWriter_(logWriter),
           buffer_(buffer),
           network_(network),
@@ -28,6 +28,8 @@ public:
     void start();
 
     void run();
+
+    void on_fork();
 
 private:
 

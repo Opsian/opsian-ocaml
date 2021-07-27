@@ -165,3 +165,18 @@ void scan_threads() {
         closedir(task);
     }
 }
+
+// -------------------
+//   Fork Thread
+// -------------------
+
+void reset_scan_threads() {
+    last_scan_threads_.clear();
+    timers_.clear();
+    metrics_thread_id_ = 0;
+    processor_thread_id_ = 0;
+    metrics_thread_started_.store(false);
+    processor_thread_started_.store(false);
+    atomic_interval_in_ns_.store(NOT_SCANNING);
+    local_interval_in_ns_ = NOT_SCANNING;
+}

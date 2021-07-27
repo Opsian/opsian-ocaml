@@ -24,6 +24,10 @@ typedef ssl::stream<tcp::socket> ssl_socket;
 
 asio::io_service& getIos();
 
+void network_prepare_fork();
+void network_parent_fork();
+void network_child_fork();
+
 class Network {
 public:
 
@@ -49,6 +53,8 @@ public:
     void close();
 
     void logNetError(const error_code &ec, const std::initializer_list<const char *> message);
+
+    void on_fork();
 
     ~Network();
 

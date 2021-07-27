@@ -1,4 +1,5 @@
 #include "profiler.h"
+#include "proc_scanner.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -224,4 +225,15 @@ Profiler::~Profiler() {
     DELETE(metrics);
     DELETE(logFile);
     DELETE(debugLogger_);
+}
+
+void Profiler::on_fork() {
+    // Reset state then start
+    reset_scan_threads();
+    processor->on_fork();
+    collectorController->on_fork();
+    writer->onSocketConnected();
+    network_->on_fork();
+    metrics->on_fork();
+    start();
 }

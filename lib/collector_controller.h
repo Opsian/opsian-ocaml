@@ -91,6 +91,8 @@ public:
 
     void stashNotification(data::NotificationCategory category, const string& payload);
 
+    void on_fork();
+
 private:
 
     enum State {

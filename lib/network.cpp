@@ -22,6 +22,18 @@ asio::io_service& getIos() {
     return *ios;
 }
 
+void network_prepare_fork() {
+    ios->notify_fork(asio::io_service::fork_prepare);
+}
+
+void network_parent_fork() {
+    ios->notify_fork(asio::io_service::fork_parent);
+}
+
+void network_child_fork() {
+    ios->notify_fork(asio::io_service::fork_child);
+}
+
 Network::Network(
     const std::string &host,
     const std::string &port,
@@ -133,7 +145,6 @@ void Network::onTimerRun(error_code& ec, bool doClose, const error_code& error) 
 
 // Use an async connect and a run loop in order to connect with a timeout
 bool Network::connect() {
-
     if (ios->stopped()) {
         ios->reset();
     }
@@ -202,8 +213,7 @@ bool Network::connect() {
 
 bool Network::sendWithSize(
     CollectorController& controller,
-    data::AgentEnvelope& agentEnvelope
-) {
+    data::AgentEnvelope& agentEnvelope) {
     // don't send anything if you haven't connected
     if (isConnected()) {
         const int size = agentEnvelope.ByteSize();
@@ -285,7 +295,6 @@ ssl_socket& Network::sock() {
 }
 
 void Network::close() {
-
     closeSocket();
 
     if (sock_ != NULL) {
@@ -316,6 +325,10 @@ void Network::closeSocket() {
         lowestLayerSock.close(ignored);
         isConnected_ = false;
     }
+}
+
+void Network::on_fork() {
+    close();
 }
 
 Network::~Network() = default;

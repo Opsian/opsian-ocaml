@@ -40,6 +40,8 @@ public:
 
     void handle(int signum, void *context);
 
+    void on_fork();
+
     ~Profiler();
 
 private:

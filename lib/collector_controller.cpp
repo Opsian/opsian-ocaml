@@ -20,6 +20,7 @@ static const uint32_t MIN_BACKOFF_TIME_IN_MS = 1000;
 static const uint32_t RANDOMISATION_RANGE_IN_MS = 1000;
 static const double BACKOFF_FACTOR = 1.5;
 static const int DONT_CHANGE_SAMPLE_RATE = 0;
+#define DEFAULT_METRICS_SAMPLE_RATE 1000
 
 std::atomic<uint32_t> CollectorController::threadIdDenials(0);
 
@@ -63,7 +64,7 @@ CollectorController::CollectorController(
       threadStateOn_(false),
       memoryProfilingOn_(false),
       metricsOn_(false),
-      metricsSampleRateMillis_(1000) {
+      metricsSampleRateMillis_(DEFAULT_METRICS_SAMPLE_RATE) {
 }
 
 void CollectorController::onTerminate() {
@@ -446,4 +447,17 @@ void CollectorController::sendStashedNotifications() {
     }
 
     notifications.clear();
+}
+
+void CollectorController::on_fork() {
+    notifications.clear();
+    backoffTimeInMs_ = 0;
+    state_ = DISCONNECTED;
+    processTimeStackSampleIntervalMillis_ = 0;
+    elapsedTimeStackSampleIntervalMillis_ = 0;
+    memoryProfilingPushRateMillis_ = 0;
+    threadStateOn_ = false;
+    memoryProfilingOn_ = false;
+    metricsOn_ = false;
+    metricsSampleRateMillis_ = DEFAULT_METRICS_SAMPLE_RATE;
 }

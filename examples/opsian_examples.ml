@@ -62,18 +62,32 @@ let thread_cycler () =
     Unix.sleepf 0.001
   done
 
-let sleep () =
+let sleep x =
   Printf.printf "Starting sleep\n%!";
-  Unix.sleep(30);
+  Unix.sleep(int_of_string x);
   Printf.printf "Done!\n%!"
 
 exception ForkFail of string
+
+let fork_fail x = raise (ForkFail ("Unable to fork: " ^ (string_of_int x)))
+
+(* Fork once at the beginning and continue doing work that gets profiled *)
 let fork () =
   Printf.printf "Starting fork\n%!";
   match Unix.fork() with
-    | x when x < 0 -> raise (ForkFail ("Unable to fork: " ^ (string_of_int x)))
-    | 0 -> Printf.printf "In the child!\n%!"; do_work ()
+    | x when x < 0 -> fork_fail x
+    | 0 -> Printf.printf "In the child: %d!\n%!" (Unix.getpid ()); do_work ()
     | pid -> Printf.printf "Spawned: %d from %d \n%!" pid (Unix.getpid ()); do_work ()
+
+(* Fork repeatedly, NB: this isn't a fork-bomb if we exit in a timely manner, but it can be if we don't *)
+let rec forks fork_times =
+  if fork_times > 0 then begin
+      Printf.printf "Starting fork: %d\n%!" fork_times;
+      match Unix.fork() with
+        | x when x < 0 -> fork_fail x
+        | 0 -> Printf.printf "In the child: %d!\n%!" (Unix.getpid ())
+        | pid -> Printf.printf "Spawned: %d from %d \n%!" pid (Unix.getpid ()); forks (fork_times - 1)
+  end
 
 let () =
   Printf.printf "Running example with:";
@@ -85,7 +99,7 @@ let () =
   | "threads"::[] -> threads ()
   | "thread_cycler"::[] -> thread_cycler ()
   | "work"::[] -> work ()
-  | "sleep"::[] -> sleep ()
+  | "sleep"::x::[] -> sleep x
   | "fork"::[] -> fork ()
+  | "forks"::fork_times::[] -> forks (int_of_string fork_times)
   | _ -> Printf.printf "Unknown \n";
-

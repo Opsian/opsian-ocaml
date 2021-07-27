@@ -243,3 +243,13 @@ void Metrics::run() {
 Metrics::~Metrics() {
     delete cpudataReader_;
 }
+
+void Metrics::on_fork() {
+    mustSendDurationMetric = false;
+    enabled_ = false;
+    sampleRateMillis_ = DEFAULT_METRICS_SAMPLE_RATE_MILLIS;
+    cpudataReader_ = NULL;
+//    readersMutex();
+    metricNameToId.clear();
+    needsToSendConstantMetrics = false;
+}

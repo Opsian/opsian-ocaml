@@ -18,6 +18,7 @@ static const char *const METRICS_THREAD_NAME = "Opsian Metrics";
 
 static const int DEFAULT_METRICS_SAMPLE_RATE_MILLIS = 1000;
 
+// Any change on default initialization values should be replicated in Metrics.on_fork()
 class Metrics {
 public:
     explicit Metrics(DebugLogger& debugLogger, CircularQueue& queue)
@@ -43,6 +44,8 @@ public:
     void disable();
 
     void setSampleRate(uint64_t sampleRateMillis);
+
+    void on_fork();
 
 private:
     DebugLogger& debugLogger_;
