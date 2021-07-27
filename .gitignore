@@ -46,6 +46,7 @@ lib/libunwind-common.h
 
 # output
 *debug.log
+debug-*.log
 
 env
 

@@ -89,6 +89,23 @@ let rec forks fork_times =
         | pid -> Printf.printf "Spawned: %d from %d \n%!" pid (Unix.getpid ()); forks (fork_times - 1)
   end
 
+external a_c_function : unit -> unit = "a_c_function"
+
+let do_work_callback x =
+  Printf.printf "Starting work: %d\n%!" x;
+  do_work ()
+  [@@inline never]
+
+(* call a_c_method which calls back into ocaml do_work function*)
+let native () =
+  Printf.printf "Starting native\n%!";
+  Callback.register "do_work_callback" do_work_callback;
+  while true ; do
+    ignore(a_c_function ());
+    Thread.yield ()
+  done
+  [@@inline never]
+
 let () =
   Printf.printf "Running example with:";
   Array.iter print_endline Sys.argv;
@@ -102,4 +119,5 @@ let () =
   | "sleep"::x::[] -> sleep x
   | "fork"::[] -> fork ()
   | "forks"::fork_times::[] -> forks (int_of_string fork_times)
+  | "native"::[] -> native ()
   | _ -> Printf.printf "Unknown \n";

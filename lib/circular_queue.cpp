@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <ctime>
 
-
 std::atomic<uint32_t> CircularQueue::allocationFailures(0);
 std::atomic<uint32_t> CircularQueue::allocationStackTraceFailures(0);
 std::atomic<uint32_t> CircularQueue::cputimeFailures(0);

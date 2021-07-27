@@ -1,4 +1,8 @@
 (executable
  (name opsian_examples)
  (libraries threads opsian unix)
- (modes exe))
+ (modes exe)
+ (foreign_stubs
+   (language c)
+   (names opsian_examples)
+   (flags -g)))
