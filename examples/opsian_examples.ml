@@ -98,8 +98,12 @@ let do_work_callback x =
 
 (* call a_c_method which calls back into ocaml do_work function*)
 let native () =
-  Printf.printf "Starting native\n%!";
-  Callback.register "do_work_callback" do_work_callback;
+  (* force heap allocation with an array *)
+  let arr = Array.make 10 0.0 in
+  for i = 0 to 9 do
+    arr.(i) <- float_of_int i
+  done;
+  Printf.printf "Starting native %f\n%!" arr.(5);
   while true ; do
     ignore(a_c_function ());
     Thread.yield ()
@@ -107,6 +111,7 @@ let native () =
   [@@inline never]
 
 let () =
+  Callback.register "do_work_callback" do_work_callback;
   Printf.printf "Running example with:";
   Array.iter print_endline Sys.argv;
   print_endline "";

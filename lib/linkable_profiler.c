@@ -67,6 +67,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
         frames[num_frames].frame = (uint64_t) uw_ip;
         frag = caml_find_code_fragment_by_pc((char*) uw_ip);
         frames[num_frames].isForeign = frag == NULL;
+        // printf("pc=%lu,for=%s\n", uw_ip, frames[num_frames].isForeign ? "yes" : "no");
 
         num_frames += 1;
 
@@ -82,11 +83,13 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
                 frame_descr* fd = caml_next_frame_descriptor(&pc, &sp);
 
                 if (fd == NULL) {
+                    // printf("fd null\n");
                     break;
                 }
 
                 first_ocaml_frame = false;
 
+                // printf("pc=%lu,for=no,ret=%lu,size=%d,live=%d\n", pc, fd->retaddr, fd->frame_size,fd->num_live);
                 frames[num_frames].frame = pc;
                 frames[num_frames].isForeign = false;
                 num_frames += 1;
@@ -99,6 +102,8 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
             }
         }
     }
+
+    // printf("\n\n");
 
     return num_frames;
 }

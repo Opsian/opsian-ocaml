@@ -212,8 +212,6 @@ void LogWriter::recordStackTrace(
         for (int frameIndex = NUMBER_OF_SIGNAL_HANDLER_FRAMES; frameIndex < numFrames; frameIndex++) {
             uintptr_t pc = frames[frameIndex].frame;
 
-            // printf("pc=%lu\n", pc);
-
             auto it = knownAddrToLocations_.find(pc);
             if (it != knownAddrToLocations_.end()) {
                 // If we've seen this address before, just add the compressed stack frame
@@ -238,8 +236,6 @@ void LogWriter::recordStackTrace(
                 addFrames(locations, stackSample);
             }
         }
-
-        // printf("\n\n");
     }
 
     stackSample->set_has_max_frames(numFrames >= MAX_FRAMES);
