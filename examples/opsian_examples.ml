@@ -91,21 +91,41 @@ let rec forks fork_times =
 
 external a_c_function : unit -> unit = "a_c_function"
 
-let do_work_callback x =
-  Printf.printf "Starting work: %d\n%!" x;
-  do_work ()
-  [@@inline never]
+external callback_c_function : (int -> unit) -> unit = "callback_c_function"
 
-(* call a_c_method which calls back into ocaml do_work function*)
-let native () =
+let do_work_callback x =
   (* force heap allocation with an array *)
   let arr = Array.make 10 0.0 in
   for i = 0 to 9 do
     arr.(i) <- float_of_int i
   done;
-  Printf.printf "Starting native %f\n%!" arr.(5);
+  Printf.printf "Starting work: %d %f\n%!" x arr.(5);
+  do_work ()
+  [@@inline never]
+
+(* call a_c_method which calls back into ocaml do_work function*)
+let native_register () =
+  (* force heap allocation with an array *)
+  let arr = Array.make 10 0.0 in
+  for i = 0 to 9 do
+    arr.(i) <- float_of_int i
+  done;
+  Printf.printf "Starting native_register %f\n%!" arr.(5);
   while true ; do
     ignore(a_c_function ());
+    Thread.yield ()
+  done
+  [@@inline never]
+
+let native_callback () =
+  (* force heap allocation with an array *)
+  let arr = Array.make 10 0.0 in
+  for i = 0 to 9 do
+    arr.(i) <- float_of_int i
+  done;
+  Printf.printf "Starting native_callback %f\n%!" arr.(5);
+  while true ; do
+    ignore(callback_c_function do_work_callback);
     Thread.yield ()
   done
   [@@inline never]
@@ -124,5 +144,6 @@ let () =
   | "sleep"::x::[] -> sleep x
   | "fork"::[] -> fork ()
   | "forks"::fork_times::[] -> forks (int_of_string fork_times)
-  | "native"::[] -> native ()
+  | "native_register"::[] -> native_register ()
+  | "native_callback"::[] -> native_callback ()
   | _ -> Printf.printf "Unknown \n";
