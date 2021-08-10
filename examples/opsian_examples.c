@@ -3,7 +3,6 @@
 #define CAML_NAME_SPACE
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
-#include <caml/custom.h>
 #include <caml/callback.h>
 
 __attribute__((noinline)) void a_c_function();

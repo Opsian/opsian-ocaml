@@ -100,7 +100,8 @@ let do_work_callback x =
     arr.(i) <- float_of_int i
   done;
   Printf.printf "Starting work: %d %f\n%!" x arr.(5);
-  do_work ()
+  Sys.opaque_identity(do_work ()) ;
+  Printf.printf "Ending work: %d %f\n%!" x arr.(3)
   [@@inline never]
 
 (* call a_c_method which calls back into ocaml do_work function*)
@@ -112,7 +113,7 @@ let native_register () =
   done;
   Printf.printf "Starting native_register %f\n%!" arr.(5);
   while true ; do
-    ignore(a_c_function ());
+    ignore(Sys.opaque_identity(a_c_function ()));
     Thread.yield ()
   done
   [@@inline never]
@@ -125,7 +126,7 @@ let native_callback () =
   done;
   Printf.printf "Starting native_callback %f\n%!" arr.(5);
   while true ; do
-    ignore(callback_c_function do_work_callback);
+    ignore(Sys.opaque_identity(callback_c_function do_work_callback));
     Thread.yield ()
   done
   [@@inline never]
