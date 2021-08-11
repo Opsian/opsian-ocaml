@@ -112,7 +112,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
         }
     }
 
-    printf("\n\n");
+    // printf("\n\n");
 
     return num_frames;
 }
