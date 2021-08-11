@@ -16,6 +16,7 @@
 #include "caml/misc.h"
 #include "caml/mlvalues.h"
 #include "caml/stack.h"
+#include <inttypes.h>
 
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
@@ -67,7 +68,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
         frames[num_frames].frame = (uint64_t) uw_ip;
         frag = caml_find_code_fragment_by_pc((char*) uw_ip);
         frames[num_frames].isForeign = frag == NULL;
-        // printf("pc=%lu,for=%s\n", uw_ip, frames[num_frames].isForeign ? "yes" : "no");
+        // printf("pc=0x%"PRIxPTR",for=%s\n", uw_ip, frames[num_frames].isForeign ? "yes" : "no");
 
         num_frames += 1;
 
@@ -89,7 +90,15 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
 
                 first_ocaml_frame = false;
 
-                // printf("pc=%lu,for=no,ret=%lu,size=%d,live=%d\n", pc, fd->retaddr, fd->frame_size,fd->num_live);
+                // Stack trace has been broken - the return address isn't to the previous function
+                if (fd->retaddr != frames[num_frames - 1].frame) {
+                    // printf("broken pc=0x%"PRIxPTR",prev=0x%"PRIxPTR"\n", pc, fd->retaddr);
+                    frames[num_frames].frame = fd->retaddr;
+                    frames[num_frames].isForeign = false;
+                    num_frames += 1;
+                }
+
+                // printf("pc=0x%"PRIxPTR",for=no,ret=0x%"PRIxPTR",size=%d,live=%d\n", pc, fd->retaddr, fd->frame_size,fd->num_live);
                 frames[num_frames].frame = pc;
                 frames[num_frames].isForeign = false;
                 num_frames += 1;
@@ -103,7 +112,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
         }
     }
 
-    // printf("\n\n");
+    printf("\n\n");
 
     return num_frames;
 }
