@@ -83,21 +83,23 @@ void Profiler::handle(int signum, void* context) {
     int num_frames = linkable_handle(frames, &errorHolder);
     uint64_t stack_ts = _rdtsc();
 
-    if (errorHolder.type == SUCCESS) {
-        CallTrace trace;
-        trace.frames = frames;
-        trace.num_frames = num_frames;
-        trace.threadId = pthread_self();
-        const bool enqueued = buffer->pushStackTrace(trace, signum, 0, stack_ts - start_ts);
-        if (!enqueued) {
-            if (signum == SIGPROF) {
-                CircularQueue::cputimeFailures++;
-            } else {
-                CircularQueue::wallclockFailures++;
-            }
-        }
-    } else {
+    const bool is_error = errorHolder.type != SUCCESS;
+
+    if (is_error) {
         pushError(&errorHolder, buffer);
+    }
+
+    CallTrace trace;
+    trace.frames = frames;
+    trace.num_frames = is_error ? -1 * num_frames : num_frames;
+    trace.threadId = pthread_self();
+    const bool enqueued = buffer->pushStackTrace(trace, signum, 0, stack_ts - start_ts);
+    if (!enqueued) {
+        if (signum == SIGPROF) {
+            CircularQueue::cputimeFailures++;
+        } else {
+            CircularQueue::wallclockFailures++;
+        }
     }
 }
 

@@ -37,6 +37,8 @@ struct ThreadInformation {
 struct Location {
     uint64_t methodId;
     int lineNumber;
+    std::string& fileName;
+    std::string& functionName;
 };
 
 struct AllocationRow {

@@ -36,7 +36,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
     if (ret < 0) {
         holder->type = GET_CONTEXT_FAIL;
         holder->errorCode = ret;
-        return ret;
+        return num_frames;
     }
 
     ret = unw_init_local(&cursor, &ucp);
@@ -44,7 +44,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
     if (ret < 0) {
         holder->type = INIT_LOCAL_FAIL;
         holder->errorCode = ret;
-        return ret;
+        return num_frames;
     }
 
     while (num_frames < MAX_FRAMES) {

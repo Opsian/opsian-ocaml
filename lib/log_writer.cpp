@@ -136,7 +136,9 @@ int LogWriter::handlePcInfo(uintptr_t pc, const char* btFileName, int lineNumber
     // Save the address information into the cache
     Location location = {
         functionId,
-        lineNumber
+        lineNumber,
+        fileName,
+        functionName
     };
     currentLocations_->push_back(location);
 
@@ -175,11 +177,15 @@ void LogWriter::handleSyminfo(uintptr_t pc, const char* btSymbolName, uintptr_t 
     }
 }
 
-void addFrames(vector<Location>& locations, data::StackSample* stackSample) {
+void addFrames(vector <Location>& locations, data::StackSample* stackSample, const bool isError, DebugLogger& logger) {
     for (auto it = locations.begin(); it != locations.end(); ++it) {
-        data::CompressedFrameEntry *frameEntry = stackSample->add_compressedframes();
-        frameEntry->set_methodid(it->methodId);
-        frameEntry->set_line(it->lineNumber);
+        if (isError) {
+            logger << it->functionName << "() at " << it->fileName << ":" << it->lineNumber << endl;
+        } else {
+            data::CompressedFrameEntry *frameEntry = stackSample->add_compressedframes();
+            frameEntry->set_methodid(it->methodId);
+            frameEntry->set_line(it->lineNumber);
+        }
     }
 }
 
@@ -206,33 +212,38 @@ void LogWriter::recordStackTrace(
 
     // Lookup symbols for frames
     CallFrame* frames = trace.frames;
-    if (!isError) {
-        for (int frameIndex = NUMBER_OF_SIGNAL_HANDLER_FRAMES; frameIndex < numFrames; frameIndex++) {
-            uintptr_t pc = frames[frameIndex].frame;
 
-            auto it = knownAddrToLocations_.find(pc);
-            if (it != knownAddrToLocations_.end()) {
-                // If we've seen this address before, just add the compressed stack frame
-                vector<Location>& addresses = it->second;
-                addFrames(addresses, stackSample);
-            } else {
-                // Looked the symbol information from dwarf
-                vector<Location> locations;
-                currentLocations_ = &locations;
-                currentSymbolName_.clear();
+    // We print out an error traces for the missing frames
+    if (isError) {
+        numFrames = -1 * numFrames;
+        debugLogger_ << "Broken stack trace len=" << numFrames << endl;
+    }
 
-                if (!frames[frameIndex].isForeign) {
-                    // Ocaml's dwarf function names don't appear to identified using backtrace_pcinfo, not sure why
-                    // So we use backtrace_syminfo to identify them. NB: this only appears to provide a single symbol
-                    // in the case of inlined functions.
-                    backtrace_syminfo(btState, pc, _handleSyminfo, _handleBtError, this);
-                }
+    for (int frameIndex = NUMBER_OF_SIGNAL_HANDLER_FRAMES; frameIndex < numFrames; frameIndex++) {
+        uintptr_t pc = frames[frameIndex].frame;
 
-                backtrace_pcinfo(btState, pc, _handlePcInfo, _handleBtError, this);
+        auto it = knownAddrToLocations_.find(pc);
+        if (it != knownAddrToLocations_.end()) {
+            // If we've seen this address before, just add the compressed stack frame
+            vector<Location>& addresses = it->second;
+            addFrames(addresses, stackSample, isError, debugLogger_);
+        } else {
+            // Looked the symbol information from dwarf
+            vector<Location> locations;
+            currentLocations_ = &locations;
+            currentSymbolName_.clear();
 
-                knownAddrToLocations_.insert({pc, locations});
-                addFrames(locations, stackSample);
+            if (!frames[frameIndex].isForeign) {
+                // Ocaml's dwarf function names don't appear to identified using backtrace_pcinfo, not sure why
+                // So we use backtrace_syminfo to identify them. NB: this only appears to provide a single symbol
+                // in the case of inlined functions.
+                backtrace_syminfo(btState, pc, _handleSyminfo, _handleBtError, this);
             }
+
+            backtrace_pcinfo(btState, pc, _handlePcInfo, _handleBtError, this);
+
+            knownAddrToLocations_.insert({pc, locations});
+            addFrames(locations, stackSample, isError, debugLogger_);
         }
     }
 
