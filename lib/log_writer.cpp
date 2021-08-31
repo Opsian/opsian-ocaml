@@ -188,7 +188,6 @@ void LogWriter::recordStackTrace(
         const CallTrace& trace,
         int signum,
         int threadState,
-        int wallclockScanId,
         uint64_t time_tsc) {
     debugLogger_ << "start record, capture time = (" << time_tsc << ")" << endl;
 
@@ -204,7 +203,6 @@ void LogWriter::recordStackTrace(
     const bool isError = numFrames < 0;
     stackSample->clear_compressedframes();
     stackSample->set_error_code(isError ? numFrames : 0);
-    stackSample->set_wallclockscanid(wallclockScanId);
 
     // Lookup symbols for frames
     CallFrame* frames = trace.frames;

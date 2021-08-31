@@ -90,7 +90,6 @@ public:
             const CallTrace &trace,
             int signum,
             int threadState,
-            int wallclockScanId,
             uint64_t time_tsc);
 
     // override

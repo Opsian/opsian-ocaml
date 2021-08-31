@@ -39,7 +39,6 @@ public:
             const CallTrace &item,
             int signum,
             int threadState,
-            int wallclockScanId,
             uint64_t time_tsc) = 0;
 
     virtual void
@@ -123,7 +122,6 @@ struct StackHolder {
         elementType(STACK_TRACE),
 
         tspec(),
-        wallclockScanId(0),
         trace(),
         signum(0),
         threadState(0),
@@ -137,7 +135,6 @@ struct StackHolder {
 
     // Stack Trace
     timespec tspec;
-    int wallclockScanId;
     CallTrace trace;
     int signum;
     int threadState;
@@ -178,7 +175,7 @@ public:
         }
     }
 
-    bool pushStackTrace(CallTrace item, int signum, int threadState, int wallclockScanId, uint64_t time_tsc);
+    bool pushStackTrace(CallTrace item, int signum, int threadState, uint64_t time_tsc);
 
     bool pushThread(const char* name, int threadId);
 

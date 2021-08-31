@@ -12,7 +12,6 @@ bool CircularQueue::pushStackTrace(
         CallTrace item,
         int signum,
         int threadState,
-        int wallclockScanId,
         uint64_t time_tsc) {
 
     timespec ts;
@@ -27,7 +26,6 @@ bool CircularQueue::pushStackTrace(
     StackHolder& holder = stackQueue.get(currentInput);
     write(item, currentInput, holder);
     holder.elementType = STACK_TRACE;
-    holder.wallclockScanId = wallclockScanId;
     holder.tspec.tv_sec = ts.tv_sec;
     holder.tspec.tv_nsec = ts.tv_nsec;
     holder.signum = signum;
@@ -213,7 +211,6 @@ bool CircularQueue::pop(QueueListener& listener) {
                     holder.trace,
                     holder.signum,
                     holder.threadState,
-                    holder.wallclockScanId,
                     holder.time_tsc);
 
                 // 0 out all frames so the next write is clean
