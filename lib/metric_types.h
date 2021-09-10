@@ -6,6 +6,9 @@
 #include "data.pb.h"
 
 using std::string;
+using std::vector;
+
+using std::string;
 
 enum class MetricDataType {
     INVALID = 0,
@@ -55,5 +58,7 @@ public:
 
     virtual ~MetricDataListener() = default;
 };
+
+bool isPrefixDisabled(const string& entryName, vector<string>& disabledPrefixes);
 
 #endif // METRIC_TYPES_H

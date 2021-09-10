@@ -147,6 +147,7 @@
     collector_controller
     concurrent_map
     cpudata_reader
+    event_ring_reader
     data.pb
     debug_logger
     globals

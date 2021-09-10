@@ -2,8 +2,6 @@
 #define CPUDATA_READER_H
 
 #include <unordered_set>
-#include <vector>
-#include <string>
 #include "metric_types.h"
 #include "globals.h"
 
@@ -96,13 +94,11 @@ public:
 
     void updateEntryPrefixes(vector<string>& disabledPrefixes);
 
-    void error(MetricDataListener& listener, const char* payload, const Error status);
-
     const bool hasEmittedConstantMetrics();
 
-private:
-    bool isDisabled(const string& entryName, vector<string>& disabledPrefixes);
+    void error(MetricDataListener& listener, const char* payload, const Error status);
 
+private:
     bool cpuProcessEnabled;
     bool cpuSystemEnabled;
     bool cpuNCoresEnabled;

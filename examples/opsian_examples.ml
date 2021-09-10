@@ -141,6 +141,14 @@ let native_callback () =
   done
   [@@inline never]
 
+let gc () =
+  Printf.printf "Starting gc\n%!";
+  while true ; do
+      ignore(Sys.opaque_identity(ref 42));
+      Gc.compact ()
+  done;
+  Printf.printf "Done!\n%!"
+
 let () =
   Callback.register "do_work_callback" do_work_callback;
   Printf.printf "Running example with:";
@@ -157,4 +165,5 @@ let () =
   | "forks"::fork_times::[] -> forks (int_of_string fork_times)
   | "native_register"::[] -> native_register_2 ()
   | "native_callback"::[] -> native_callback ()
+  | "gc"::[] -> gc ()
   | _ -> Printf.printf "Unknown \n";

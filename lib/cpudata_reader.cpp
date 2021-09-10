@@ -210,22 +210,11 @@ static const string memCoreName = string("mem.system.core");
 static const string memExtendedName = string("mem.system.extended");
 
 void CPUDataReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
-    cpuProcessEnabled = !isDisabled(cpuProcessName, disabledPrefixes);
-    cpuSystemEnabled = !isDisabled(cpuSystemName, disabledPrefixes);
-    cpuNCoresEnabled = !isDisabled(cpuNCoresName, disabledPrefixes);
-    memCoreEnabled = !isDisabled(memCoreName, disabledPrefixes);
-    memExtendedEnabled = !isDisabled(memExtendedName, disabledPrefixes);
-}
-
-bool CPUDataReader::isDisabled(const string& entryName, vector<string>& disabledPrefixes) {
-    for (auto it = disabledPrefixes.begin(); it != disabledPrefixes.end(); ++it) {
-        const auto& enabledPrefix = *it;
-        if (entryName.compare(0, enabledPrefix.length(), enabledPrefix) == 0) {
-            return true;
-        }
-    }
-
-    return false;
+    cpuProcessEnabled = !isPrefixDisabled(cpuProcessName, disabledPrefixes);
+    cpuSystemEnabled = !isPrefixDisabled(cpuSystemName, disabledPrefixes);
+    cpuNCoresEnabled = !isPrefixDisabled(cpuNCoresName, disabledPrefixes);
+    memCoreEnabled = !isPrefixDisabled(memCoreName, disabledPrefixes);
+    memExtendedEnabled = !isPrefixDisabled(memExtendedName, disabledPrefixes);
 }
 
 void CPUDataReader::error(

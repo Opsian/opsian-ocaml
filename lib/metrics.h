@@ -8,6 +8,7 @@
 #include "metric_types.h"
 #include "circular_queue.h"
 #include "log_writer.h"
+#include "event_ring_reader.h"
 
 #include <boost/thread/mutex.hpp>
 
@@ -28,6 +29,7 @@ public:
       mustSendDurationMetric(false),
       enabled_(false),
       sampleRateMillis_(DEFAULT_METRICS_SAMPLE_RATE_MILLIS),
+      eventRingReader_(nullptr),
       cpudataReader_(nullptr),
       readersMutex(),
       metricNameToId(),
@@ -54,6 +56,8 @@ private:
     std::atomic_bool mustSendDurationMetric;
     bool enabled_;
     std::atomic<uint64_t> sampleRateMillis_;
+
+    EventRingReader* eventRingReader_;
     CPUDataReader* cpudataReader_;
     // Mutex can be held on the processor thread or metrics thread
     // Should not hold this mutex whilst retrying the enqueuing as that could deadlock with

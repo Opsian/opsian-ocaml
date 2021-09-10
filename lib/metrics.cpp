@@ -21,6 +21,17 @@ static const MetricInformation DURATION_INFO{
     MetricUnit::MILLISECONDS // TODO: make this nanoseconds
 };
 
+bool isPrefixDisabled(const string& entryName, vector<string>& disabledPrefixes) {
+    for (auto it = disabledPrefixes.begin(); it != disabledPrefixes.end(); ++it) {
+        const auto& enabledPrefix = *it;
+        if (entryName.compare(0, enabledPrefix.length(), enabledPrefix) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void* callbackToRunMetrics(void* arg) {
     // Avoid having the metrics thread also receive the PROF signals
     sigset_t mask;
@@ -52,11 +63,13 @@ void Metrics::enable(vector<string>& disabledPrefixes) {
 
     if (!enabled_) {
         cpudataReader_ = new CPUDataReader(disabledPrefixes);
+        eventRingReader_ = new EventRingReader(disabledPrefixes);
 
         mustSendDurationMetric.store(true);
         needsToSendConstantMetrics = true;
     } else {
         cpudataReader_->updateEntryPrefixes(disabledPrefixes);
+        eventRingReader_->updateEntryPrefixes(disabledPrefixes);
     }
 
     enabled_ = true;
@@ -71,6 +84,8 @@ void Metrics::disable() {
     if (enabled_) {
         delete cpudataReader_;
         cpudataReader_ = nullptr;
+        delete eventRingReader_;
+        eventRingReader_ = nullptr;
         metricNameToId.clear();
     }
 
@@ -223,9 +238,11 @@ void Metrics::run() {
                 if (enabled_) {
                     metricListener.start();
                     cpudataReader_->read(metricListener);
+                    eventRingReader_->read(metricListener);
                     const bool noRemainingConstantsToSend = metricListener.flush();
                     if (needsToSendConstantMetrics) {
                         if (cpudataReader_->hasEmittedConstantMetrics() &&
+                            eventRingReader_->hasEmittedConstantMetrics() &&
                             noRemainingConstantsToSend) {
                             needsToSendConstantMetrics = !queue_.pushConstantMetricsComplete();
                         }
@@ -242,13 +259,15 @@ void Metrics::run() {
 
 Metrics::~Metrics() {
     delete cpudataReader_;
+    delete eventRingReader_;
 }
 
 void Metrics::on_fork() {
     mustSendDurationMetric = false;
     enabled_ = false;
     sampleRateMillis_ = DEFAULT_METRICS_SAMPLE_RATE_MILLIS;
-    cpudataReader_ = NULL;
+    cpudataReader_ = nullptr;
+    eventRingReader_ = nullptr;
 //    readersMutex();
     metricNameToId.clear();
     needsToSendConstantMetrics = false;
