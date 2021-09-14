@@ -12,6 +12,10 @@ static const string EVENT_RING_NAME = string("ocaml.eventring");
 static const string ENABLED_NAME = string("ocaml.eventring.enabled");
 
 // TODO: timestamps are nanoseconds
+// TODO: add sending back the counters
+// TODO: add a lost events metric and send that back
+// TODO: expose gc.h configuration as constant metrics, gc.ml
+// TODO: OCAMLRUNPARAM as a string
 
 #define CAML_HAS_EVENTRING
 
@@ -143,8 +147,8 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             // first time ever
             caml_eventring_start();
 
-            callbacks_.ev_begin = eventRingBegin;
-            callbacks_.ev_end = eventRingEnd;
+//            callbacks_.ev_begin = eventRingBegin;
+//            callbacks_.ev_end = eventRingEnd;
 
             printf("start\n");
             calledStart_ = true;
@@ -153,11 +157,10 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             printf("caml_eventring_resume()\n");
         }
 
-//        printf("Caml_state->eventlog_startup_pid %ld\n", Caml_state->eventlog_startup_pid);
-
         cursor_ = caml_eventring_create_cursor(NULL, Caml_state->eventlog_startup_pid);
         if (!cursor_) {
             printf("invalid or non-existent cursor\n"); // TODO: better error logging
+            cursor_ = nullptr;
         }
 
         printf("caml_eventring_create_cursor\n");
@@ -165,9 +168,9 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
     } else if (wasEnabled && !enabled_) {
         // on stop
         printf("on stop\n");
-//        caml_eventring_pause();
+        caml_eventring_pause();
 
-//        caml_eventring_free_cursor(cursor_);
+        caml_eventring_free_cursor(cursor_);
     }
     #endif
 }
@@ -190,12 +193,10 @@ void EventRingReader::read(MetricDataListener& listener) {
 
     #ifdef CAML_HAS_EVENTRING
     if (enabled_) {
-        printf("read\n");
         listener_ = &listener;
-        printf("read 2\n");
         entries_.clear();
-        printf("read 3\n");
-//        caml_eventring_read_poll(cursor_, &callbacks_);
+        printf("read 3 %lu\n", (uintptr_t)cursor_);
+        caml_eventring_read_poll(cursor_, &callbacks_);
         printf("caml_eventring_read_poll\n");
         if (!entries_.empty()) {
             listener.recordEntries(entries_);
