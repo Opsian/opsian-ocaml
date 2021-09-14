@@ -54,6 +54,8 @@ void Metrics::startThread() {
     if (result) {
         logError("ERROR: failed to start processor thread %d\n", result);
     }
+
+    pthread_setname_np(thread, METRICS_THREAD_NAME);
 }
 
 // Called on processor thread - don't enqueue

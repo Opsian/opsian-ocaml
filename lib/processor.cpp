@@ -63,6 +63,8 @@ void Processor::start() {
     if (result) {
         logError("ERROR: failed to start processor thread %d\n", result);
     }
+
+    pthread_setname_np(thread, PROCESSOR_THREAD_NAME);
 }
 
 void Processor::on_fork() {
