@@ -4,6 +4,7 @@ extern "C" {
 #define CAML_NAME_SPACE
 
 #include "caml/misc.h" // CamlExtern
+#include <caml/threads.h> // runtime lock
 #include "caml/eventring.h"
 #include "caml/mlvalues.h" // Caml_state
 }
@@ -74,7 +75,7 @@ static caml_eventring_callbacks callbacks_ = {0};
 static MetricDataListener* listener_ = nullptr;
 static vector<MetricListenerEntry> entries_{};
 
-static std::unordered_map<ev_gc_phase, EventState> phaseToEventState_{};
+static std::unordered_map<ev_runtime_phase, EventState> phaseToEventState_{};
 
 void emitWarning(const string& message) {
     if (listener_ != nullptr) {
@@ -82,7 +83,7 @@ void emitWarning(const string& message) {
     }
 }
 
-void eventRingBegin(uint64_t timestamp, ev_gc_phase phase) {
+void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     printf("eventRingBegin %lu %d\n", timestamp, phase);
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
@@ -100,7 +101,7 @@ void eventRingBegin(uint64_t timestamp, ev_gc_phase phase) {
     }
 }
 
-void eventRingEnd(uint64_t timestamp, ev_gc_phase phase) {
+void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     printf("eventRingEnd %lu %d\n", timestamp, phase);
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
@@ -145,15 +146,20 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
         // on start
         if (!calledStart_) {
             // first time ever
-            caml_eventring_start();
-
-//            callbacks_.ev_begin = eventRingBegin;
-//            callbacks_.ev_end = eventRingEnd;
-
             printf("start\n");
+            caml_acquire_runtime_system();
+            caml_eventring_start();
+            caml_release_runtime_system();
+            printf("started\n");
+
+//            callbacks_.ev_runtime_begin = eventRingBegin;
+//            callbacks_.ev_runtime_end = eventRingEnd;
+
             calledStart_ = true;
         } else {
+            caml_acquire_runtime_system();
             caml_eventring_resume();
+            caml_release_runtime_system();
             printf("caml_eventring_resume()\n");
         }
 
@@ -168,7 +174,9 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
     } else if (wasEnabled && !enabled_) {
         // on stop
         printf("on stop\n");
+        caml_acquire_runtime_system();
         caml_eventring_pause();
+        caml_release_runtime_system();
 
         caml_eventring_free_cursor(cursor_);
     }
@@ -196,7 +204,7 @@ void EventRingReader::read(MetricDataListener& listener) {
         listener_ = &listener;
         entries_.clear();
         printf("read 3 %lu\n", (uintptr_t)cursor_);
-        caml_eventring_read_poll(cursor_, &callbacks_);
+        caml_eventring_read_poll(cursor_, &callbacks_, nullptr);
         printf("caml_eventring_read_poll\n");
         if (!entries_.empty()) {
             listener.recordEntries(entries_);

@@ -3,6 +3,10 @@
 
 #include <boost/functional/hash.hpp>
 #include <boost/thread/condition_variable.hpp>
+extern "C" {
+#include "caml/misc.h"
+#include <caml/threads.h>
+}
 
 #include <unistd.h>
 
@@ -42,8 +46,21 @@ void* callbackToRunMetrics(void* arg) {
         logError("ERROR: failed to set metrics thread signal mask\n");
     }
 
+    printf("threadId=%d\n", getTid());
+
+    int res = caml_c_thread_register();
+    if (res != 1) {
+        logError("Unable to register metrics thread with ocaml");
+    }
+
     Metrics* metrics = (Metrics*) arg;
     metrics->run();
+
+    res = caml_c_thread_unregister();
+    if (res != 1) {
+        logError("Unable to unregister metrics thread with ocaml");
+    }
+
     return nullptr;
 }
 
