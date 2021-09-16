@@ -17,6 +17,7 @@ static const string ENABLED_NAME = string("ocaml.eventring.enabled");
 // TODO: add a lost events metric and send that back
 // TODO: expose gc.h configuration as constant metrics, gc.ml
 // TODO: OCAMLRUNPARAM as a string
+// TODO: deal with the threading issue of prefix enablement being on processor thread
 
 #define CAML_HAS_EVENTRING
 
@@ -137,6 +138,7 @@ EventRingReader::EventRingReader(vector<string>& disabledPrefixes)
     printf("enabled_=%d\n", enabled_);
 }
 
+// Called on processor thread
 void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
     __attribute__((unused)) bool wasEnabled = enabled_;
     enabled_ = !isPrefixDisabled(EVENT_RING_NAME, disabledPrefixes);
@@ -152,8 +154,8 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             caml_release_runtime_system();
             printf("started\n");
 
-//            callbacks_.ev_runtime_begin = eventRingBegin;
-//            callbacks_.ev_runtime_end = eventRingEnd;
+            // callbacks_.ev_runtime_begin = eventRingBegin;
+            // callbacks_.ev_runtime_end = eventRingEnd;
 
             calledStart_ = true;
         } else {

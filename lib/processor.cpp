@@ -4,6 +4,11 @@
 #include "globals.h"
 #include "proc_scanner.h"
 
+extern "C" {
+#include "caml/misc.h"
+#include <caml/threads.h>
+}
+
 const int MAX_POLLS = 10;
 
 const uint64_t MIN_SLEEP_IN_MS = 2;
@@ -51,8 +56,19 @@ void* callbackToRunProcessor(void *arg) {
         logError("ERROR: failed to set processor thread signal mask\n");
     }
 
+    int res = caml_c_thread_register();
+    if (res != 1) {
+        logError("Unable to register metrics thread with ocaml");
+    }
+
     Processor *processor = (Processor *) arg;
     processor->run();
+
+    res = caml_c_thread_unregister();
+    if (res != 1) {
+        logError("Unable to unregister metrics thread with ocaml");
+    }
+
     return nullptr;
 }
 
