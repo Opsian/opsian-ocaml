@@ -20,6 +20,8 @@ private:
     bool calledStart_;
 
     bool hasEmittedConstantMetrics_;
+
+    void emitConstantMetrics(MetricDataListener &listener) const;
 };
 
 #endif //OPSIAN_OCAML_EVENT_RING_READER_H
