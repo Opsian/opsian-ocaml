@@ -92,23 +92,39 @@ struct EventState {
     string eventName;
 };
 
+class PollState {
+public:
+    PollState(MetricDataListener& listener) : listener_(listener), entries_() {
+    }
+
+    void emitWarning(const string& message) {
+        listener_.recordNotification(data::NotificationCategory::USER_WARNING, message);
+    }
+
+    void addEntry(MetricListenerEntry& entry) {
+        entries_.push_back(entry);
+    }
+
+    void push() {
+        if (!entries_.empty()) {
+            listener_.recordEntries(entries_);
+        }
+    }
+
+private:
+    MetricDataListener& listener_;
+    vector<MetricListenerEntry> entries_;
+};
+
 static caml_eventring_cursor* cursor_ = nullptr;
 
 static caml_eventring_callbacks callbacks_ = {0};
 
-static MetricDataListener* listener_ = nullptr;
-static vector<MetricListenerEntry> entries_{};
-
 static std::unordered_map<ev_runtime_phase, EventState> phaseToEventState_{};
-
-void emitWarning(const string& message) {
-    if (listener_ != nullptr) {
-        listener_->recordNotification(data::NotificationCategory::USER_WARNING, message);
-    }
-}
 
 void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     // printf("eventRingBegin %lu %d\n", timestamp, phase);
+    PollState* pollState = (PollState*) data;
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
         if (phase <= EV_PHASE_NAMES_SIZE) {
@@ -118,7 +134,7 @@ void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
             phaseToEventState_.insert({phase, eventState});
         } else {
             const string msg = "Unknown GC phase: " + std::to_string(phase);
-            emitWarning(msg);
+            pollState->emitWarning(msg);
         }
     } else {
         it->second.beginTimestamp = timestamp;
@@ -127,11 +143,12 @@ void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
 
 void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     // printf("eventRingEnd %lu %d\n", timestamp, phase);
+    PollState* pollState = (PollState*) data;
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
         // TODO: re-enable this warning once we've improved polling frequency
         // const string msg = string("Received end without begin for phase: ") + EV_PHASE_NAMES[phase];
-        // emitWarning(msg);
+        // pollState->emitWarning(msg);
         return;
     }
 
@@ -146,13 +163,14 @@ void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     entry.data.type = MetricDataType::LONG;
     entry.data.valueLong = duration;
 
-    entries_.push_back(entry);
+    pollState->addEntry(entry);
 
     phaseToEventState_.erase(it);
 }
 
 void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter, uint64_t value) {
     printf("eventRingCounter %lu %d %lu %s\n", timestamp, counter, value, EV_COUNTER_NAMES[counter]);
+    PollState* pollState = (PollState*) data;
     if (counter <= EV_COUNTER_NAMES_SIZE) {
         struct MetricListenerEntry entry{};
 
@@ -163,15 +181,16 @@ void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter
         // uint64 to int64 conversion
         entry.data.valueLong = value;
 
-        entries_.push_back(entry);
+        pollState->addEntry(entry);
     } else {
         const string msg = "Unknown GC counter: " + std::to_string(counter);
-        emitWarning(msg);
+        pollState->emitWarning(msg);
     }
 }
 
 void eventRingLostEvents(void* data, int lost_events) {
     // printf("eventRingLostEvents %d\n", lost_events);
+    PollState* pollState = (PollState*) data;
     struct MetricListenerEntry entry{};
 
     entry.name = LOST_EVENTS_NAME;
@@ -180,7 +199,7 @@ void eventRingLostEvents(void* data, int lost_events) {
     entry.data.type = MetricDataType::LONG;
     entry.data.valueLong = lost_events;
 
-    entries_.push_back(entry);
+    pollState->addEntry(entry);
 }
 
 #else
@@ -249,13 +268,9 @@ void EventRingReader::read(MetricDataListener& listener) {
         }
 
         #ifdef CAML_HAS_EVENTRING
-        listener_ = &listener;
-        entries_.clear();
-        caml_eventring_read_poll(cursor_, &callbacks_, nullptr);
-        if (!entries_.empty()) {
-            listener.recordEntries(entries_);
-        }
-        listener_ = nullptr;
+        PollState pollState(listener);
+        caml_eventring_read_poll(cursor_, &callbacks_, &pollState);
+        pollState.push();
         #endif
     }
 }
