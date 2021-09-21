@@ -12,13 +12,14 @@ extern "C" {
 
 static const string EVENT_RING_NAME = string("ocaml.eventring");
 static const string ENABLED_NAME = string("ocaml.eventring.enabled");
+static const string LOST_EVENTS_NAME = string("ocaml.eventring.lost_events");
 static const string RUN_PARAM_NAME = string("ocaml.runparam");
 
 // TODO: timestamps are nanoseconds
 // TODO: convert to use the *data values
-// TODO: add a lost events metric and send that back
 // TODO: expose gc.h configuration as constant metrics, gc.ml
 // TODO: deal with the threading issue of prefix enablement being on processor thread
+// TODO: poll more frequently
 
 #define CAML_HAS_EVENTRING
 
@@ -129,8 +130,9 @@ void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     // printf("eventRingEnd %lu %d\n", timestamp, phase);
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
-        const string msg = string("Received end without begin for phase: ") + EV_PHASE_NAMES[phase];
-        emitWarning(msg);
+        // TODO: re-enable this warning once we've improved polling frequency
+        // const string msg = string("Received end without begin for phase: ") + EV_PHASE_NAMES[phase];
+        // emitWarning(msg);
         return;
     }
 
@@ -146,6 +148,8 @@ void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     entry.data.valueLong = duration;
 
     entries_.push_back(entry);
+
+    phaseToEventState_.erase(it);
 }
 
 void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter, uint64_t value) {
@@ -165,6 +169,19 @@ void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter
         const string msg = "Unknown GC counter: " + std::to_string(counter);
         emitWarning(msg);
     }
+}
+
+void eventRingLostEvents(void* data, int lost_events) {
+    // printf("eventRingLostEvents %d\n", lost_events);
+    struct MetricListenerEntry entry{};
+
+    entry.name = LOST_EVENTS_NAME;
+    entry.unit = MetricUnit::NONE;
+    entry.variability = MetricVariability::VARIABLE;
+    entry.data.type = MetricDataType::LONG;
+    entry.data.valueLong = lost_events;
+
+    entries_.push_back(entry);
 }
 
 #else
@@ -200,6 +217,7 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             callbacks_.ev_runtime_begin = eventRingBegin;
             callbacks_.ev_runtime_end = eventRingEnd;
             callbacks_.ev_runtime_counter = eventRingCounter;
+            callbacks_.ev_lost_events = eventRingLostEvents;
 
             calledStart_ = true;
         } else {
