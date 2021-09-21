@@ -1,6 +1,7 @@
 #ifndef OPSIAN_OCAML_EVENT_RING_READER_H
 #define OPSIAN_OCAML_EVENT_RING_READER_H
 
+#include <atomic>
 #include "metric_types.h"
 
 class EventRingReader {
@@ -15,9 +16,10 @@ public:
     const bool hasEmittedConstantMetrics();
 
 private:
-    bool enabled_;
 
-    bool calledStart_;
+    // Written on processor thread, read on metrics thread and processor thread
+    std::atomic_bool enabled_;
+    std::atomic_bool calledStart_;
 
     bool hasEmittedConstantMetrics_;
 

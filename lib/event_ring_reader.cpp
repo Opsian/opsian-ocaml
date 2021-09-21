@@ -18,7 +18,6 @@ static const string RUN_PARAM_NAME = string("ocaml.runparam");
 // TODO: timestamps are nanoseconds
 // TODO: convert to use the *data values
 // TODO: expose gc.h configuration as constant metrics, gc.ml
-// TODO: deal with the threading issue of prefix enablement being on processor thread
 // TODO: poll more frequently
 
 #define CAML_HAS_EVENTRING
@@ -153,7 +152,7 @@ void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
 }
 
 void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter, uint64_t value) {
-//    printf("eventRingCounter %lu %d %lu\n", timestamp, counter, value);
+    printf("eventRingCounter %lu %d %lu %s\n", timestamp, counter, value, EV_COUNTER_NAMES[counter]);
     if (counter <= EV_COUNTER_NAMES_SIZE) {
         struct MetricListenerEntry entry{};
 
@@ -194,21 +193,18 @@ EventRingReader::EventRingReader(vector<string>& disabledPrefixes)
       hasEmittedConstantMetrics_(false) {
 
     updateEntryPrefixes(disabledPrefixes);
-
-    printf("enabled_=%d\n", enabled_);
 }
 
 // Called on processor thread
 void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
     __attribute__((unused)) bool wasEnabled = enabled_;
-    enabled_ = !isPrefixDisabled(EVENT_RING_NAME, disabledPrefixes);
+    const bool enabled = !isPrefixDisabled(EVENT_RING_NAME, disabledPrefixes);
 
     #ifdef CAML_HAS_EVENTRING
-    if (!wasEnabled && enabled_) {
+    if (!wasEnabled && enabled) {
         // on start
         if (!calledStart_) {
             // first time ever
-            printf("start\n");
             caml_acquire_runtime_system();
             caml_eventring_start();
             caml_release_runtime_system();
@@ -224,7 +220,6 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             caml_acquire_runtime_system();
             // TODO: caml_eventring_resume();
             caml_release_runtime_system();
-            printf("caml_eventring_resume()\n");
         }
 
         cursor_ = caml_eventring_create_cursor(NULL, Caml_state->eventlog_startup_pid);
@@ -232,12 +227,8 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             printf("invalid or non-existent cursor\n"); // TODO: better error logging
             cursor_ = nullptr;
         }
-
-        printf("caml_eventring_create_cursor\n");
-
-    } else if (wasEnabled && !enabled_) {
+    } else if (wasEnabled && !enabled) {
         // on stop
-        printf("on stop\n");
         caml_acquire_runtime_system();
         // TODO: caml_eventring_pause();
         caml_release_runtime_system();
@@ -245,28 +236,28 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
         caml_eventring_free_cursor(cursor_);
     }
     #endif
+
+    enabled_ = enabled;
 }
 
 void EventRingReader::read(MetricDataListener& listener) {
-    if (!hasEmittedConstantMetrics_) {
-        emitConstantMetrics(listener);
-
-        hasEmittedConstantMetrics_ = true;
-    }
-
-    #ifdef CAML_HAS_EVENTRING
     if (enabled_) {
+        if (!hasEmittedConstantMetrics_) {
+            emitConstantMetrics(listener);
+
+            hasEmittedConstantMetrics_ = true;
+        }
+
+        #ifdef CAML_HAS_EVENTRING
         listener_ = &listener;
         entries_.clear();
-        printf("read 3 %lu\n", (uintptr_t)cursor_);
         caml_eventring_read_poll(cursor_, &callbacks_, nullptr);
-        printf("caml_eventring_read_poll\n");
         if (!entries_.empty()) {
             listener.recordEntries(entries_);
         }
         listener_ = nullptr;
+        #endif
     }
-    #endif
 }
 
 void EventRingReader::emitConstantMetrics(MetricDataListener& listener) const {
