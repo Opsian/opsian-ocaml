@@ -69,6 +69,9 @@ private:
 
     bool isConnected_;
 
+    // designed to stop timer triggered messages (the heartbeat) from accidentally poll based messages
+    bool isSending_;
+
     ssl_socket* sock_;
 
     const std::string& host_;

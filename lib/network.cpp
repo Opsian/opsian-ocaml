@@ -42,6 +42,7 @@ Network::Network(
     const bool onPremHost)
     : ctx(ssl::context::sslv23),
       isConnected_(false),
+      isSending_(false),
       sock_(NULL),
       host_(host),
       port_(port),
@@ -216,6 +217,12 @@ bool Network::sendWithSize(
     data::AgentEnvelope& agentEnvelope) {
     // don't send anything if you haven't connected
     if (isConnected()) {
+        if (isSending_) {
+            debugLogger_ << "blocked sendWithSize " << agentEnvelope.downstream_message_type_case() << endl;
+            return false;
+        }
+
+        isSending_ = true;
         const int size = agentEnvelope.ByteSize();
 
         const int maxSize = MAX_HEADER_SIZE + size;
@@ -237,7 +244,7 @@ bool Network::sendWithSize(
                     asio::buffer(buffer.data(), aos.ByteCount()),
                     var(ec) = boost::lambda::_1);
 
-            debugLogger_ << "start awaitCompletionOrTimeout" << endl;
+            debugLogger_ << "start awaitCompletionOrTimeout " << agentEnvelope.downstream_message_type_case() << endl;
             awaitCompletionOrTimeout(ec, writeTimer);
             debugLogger_ << "end awaitCompletionOrTimeout" << endl;
 
@@ -260,12 +267,14 @@ bool Network::sendWithSize(
                 }
             }
 
+            isSending_ = false;
             return ec.value() == 0;
         } else {
             logError("Failed to serialize message\n");
         }
     }
 
+    isSending_ = false;
     return false;
 }
 
