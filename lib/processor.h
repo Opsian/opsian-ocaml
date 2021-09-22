@@ -6,7 +6,8 @@
 #include "network.h"
 #include "collector_controller.h"
 
-static const char *const PROCESSOR_THREAD_NAME = "Opsian Processor";
+// Do not set this to longer than 16 characters
+static const char *const PROCESSOR_THREAD_NAME = "Opsian Proc";
 
 class Processor {
 
