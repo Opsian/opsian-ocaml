@@ -145,8 +145,9 @@ let gc () =
   Printf.printf "Starting gc\n%!";
   while true ; do
       ignore(Sys.opaque_identity(ref 42));
-      Gc.compact () ;
-      Thread.yield ()
+      Gc.compact ();
+      Thread.yield ();
+      Unix.sleepf(0.000001)
   done;
   Printf.printf "Done!\n%!"
 

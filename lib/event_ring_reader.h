@@ -9,9 +9,11 @@ class EventRingReader {
 public:
     EventRingReader(vector<string>& disabledPrefixes);
 
-    void read(MetricDataListener& listener);
+    uint32_t read(MetricDataListener& listener);
 
     void updateEntryPrefixes(vector<string>& disabledPrefixes);
+
+    void disable();
 
     const bool hasEmittedConstantMetrics();
 
@@ -19,7 +21,6 @@ private:
 
     // Written on processor thread, read on metrics thread and processor thread
     std::atomic_bool enabled_;
-    std::atomic_bool calledStart_;
 
     bool hasEmittedConstantMetrics_;
 

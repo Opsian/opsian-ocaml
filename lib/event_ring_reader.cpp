@@ -1,5 +1,6 @@
 #include "event_ring_reader.h"
 #include <cstdlib>
+#include "globals.h"
 
 extern "C" {
 #define CAML_NAME_SPACE
@@ -14,11 +15,13 @@ static const string EVENT_RING_NAME = string("ocaml.eventring");
 static const string ENABLED_NAME = string("ocaml.eventring.enabled");
 static const string LOST_EVENTS_NAME = string("ocaml.eventring.lost_events");
 static const string RUN_PARAM_NAME = string("ocaml.runparam");
+static const int MAX_EVENTS = 5000;
+static std::atomic_bool calledStart_(false);
 
+// TODO: understand the message cutoff bug
+// TODO: maybe pause eventring when we disconnect so we don't spam server on reconnect?
 // TODO: timestamps are nanoseconds
-// TODO: convert to use the *data values
-// TODO: expose gc.h configuration as constant metrics, gc.ml
-// TODO: poll more frequently
+// TODO: fix the metric duration being inaccurate
 
 #define CAML_HAS_EVENTRING
 
@@ -94,7 +97,8 @@ struct EventState {
 
 class PollState {
 public:
-    PollState(MetricDataListener& listener) : listener_(listener), entries_() {
+    PollState(MetricDataListener& listener)
+        : listener_(listener), entries_(), lostEvents_(0) {
     }
 
     void emitWarning(const string& message) {
@@ -105,7 +109,25 @@ public:
         entries_.push_back(entry);
     }
 
+    void lostEvents(int lostEvents) {
+        lostEvents_ += lostEvents;
+    }
+
     void push() {
+        if (lostEvents_ > 0) {
+            struct MetricListenerEntry entry{};
+
+            entry.name = LOST_EVENTS_NAME;
+            entry.unit = MetricUnit::NONE;
+            entry.variability = MetricVariability::VARIABLE;
+            entry.data.type = MetricDataType::LONG;
+            entry.data.valueLong = lostEvents_;
+
+            addEntry(entry);
+            printf("lostEvents_=%d\n", lostEvents_);
+        }
+
+        printf("len=%lu\n", entries_.size());
         if (!entries_.empty()) {
             listener_.recordEntries(entries_);
         }
@@ -114,6 +136,7 @@ public:
 private:
     MetricDataListener& listener_;
     vector<MetricListenerEntry> entries_;
+    int lostEvents_;
 };
 
 static caml_eventring_cursor* cursor_ = nullptr;
@@ -169,7 +192,7 @@ void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
 }
 
 void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter, uint64_t value) {
-    printf("eventRingCounter %lu %d %lu %s\n", timestamp, counter, value, EV_COUNTER_NAMES[counter]);
+    // printf("eventRingCounter %lu %d %lu %s\n", timestamp, counter, value, EV_COUNTER_NAMES[counter]);
     PollState* pollState = (PollState*) data;
     if (counter <= EV_COUNTER_NAMES_SIZE) {
         struct MetricListenerEntry entry{};
@@ -191,15 +214,7 @@ void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter
 void eventRingLostEvents(void* data, int lost_events) {
     // printf("eventRingLostEvents %d\n", lost_events);
     PollState* pollState = (PollState*) data;
-    struct MetricListenerEntry entry{};
-
-    entry.name = LOST_EVENTS_NAME;
-    entry.unit = MetricUnit::NONE;
-    entry.variability = MetricVariability::VARIABLE;
-    entry.data.type = MetricDataType::LONG;
-    entry.data.valueLong = lost_events;
-
-    pollState->addEntry(entry);
+    pollState->lostEvents(lost_events);
 }
 
 #else
@@ -208,13 +223,12 @@ static const bool hasEventRing_ = false;
 
 EventRingReader::EventRingReader(vector<string>& disabledPrefixes)
     : enabled_(false),
-      calledStart_(false),
       hasEmittedConstantMetrics_(false) {
 
     updateEntryPrefixes(disabledPrefixes);
 }
 
-// Called on processor thread
+// Called on processor thread with readersMutex
 void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
     __attribute__((unused)) bool wasEnabled = enabled_;
     const bool enabled = !isPrefixDisabled(EVENT_RING_NAME, disabledPrefixes);
@@ -227,7 +241,6 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             caml_acquire_runtime_system();
             caml_eventring_start();
             caml_release_runtime_system();
-            printf("started\n");
 
             callbacks_.ev_runtime_begin = eventRingBegin;
             callbacks_.ev_runtime_end = eventRingEnd;
@@ -237,42 +250,60 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             calledStart_ = true;
         } else {
             caml_acquire_runtime_system();
-            // TODO: caml_eventring_resume();
+            caml_eventring_resume();
             caml_release_runtime_system();
         }
 
         cursor_ = caml_eventring_create_cursor(NULL, Caml_state->eventlog_startup_pid);
         if (!cursor_) {
-            printf("invalid or non-existent cursor\n"); // TODO: better error logging
+            logError("invalid or non-existent cursor\n");
             cursor_ = nullptr;
         }
     } else if (wasEnabled && !enabled) {
         // on stop
-        caml_acquire_runtime_system();
-        // TODO: caml_eventring_pause();
-        caml_release_runtime_system();
-
-        caml_eventring_free_cursor(cursor_);
+        disable();
     }
     #endif
 
     enabled_ = enabled;
 }
 
-void EventRingReader::read(MetricDataListener& listener) {
+// Called on processor thread with readersMutex
+void EventRingReader::disable() {
+    if (enabled_ && calledStart_) {
+        caml_acquire_runtime_system();
+        caml_eventring_pause();
+        caml_release_runtime_system();
+    }
+
+    if (cursor_ != nullptr) {
+        caml_eventring_free_cursor(cursor_);
+        cursor_ = nullptr;
+    }
+}
+
+uint32_t EventRingReader::read(MetricDataListener& listener) {
+    uint32_t events = 0;
     if (enabled_) {
         if (!hasEmittedConstantMetrics_) {
             emitConstantMetrics(listener);
+            events++;
 
             hasEmittedConstantMetrics_ = true;
         }
 
         #ifdef CAML_HAS_EVENTRING
-        PollState pollState(listener);
-        caml_eventring_read_poll(cursor_, &callbacks_, &pollState);
-        pollState.push();
+        if (cursor_ != nullptr) {
+            PollState pollState(listener);
+            int eventsRead = caml_eventring_read_poll(cursor_, &callbacks_, &pollState, MAX_EVENTS);
+            printf("eventsRead=%d\n", eventsRead);
+            events += eventsRead;
+            pollState.push();
+        }
         #endif
     }
+
+    return events;
 }
 
 void EventRingReader::emitConstantMetrics(MetricDataListener& listener) const {

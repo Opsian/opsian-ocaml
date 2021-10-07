@@ -89,6 +89,7 @@ void Metrics::disable() {
     if (enabled_) {
         delete cpudataReader_;
         cpudataReader_ = nullptr;
+        eventRingReader_->disable();
         delete eventRingReader_;
         eventRingReader_ = nullptr;
         metricNameToId.clear();
@@ -100,6 +101,13 @@ void Metrics::disable() {
 
 void Metrics::setSampleRate(uint64_t sampleRateMillis) {
     sampleRateMillis_.store(sampleRateMillis);
+}
+
+time_t deltaInNs(timespec& start, timespec& end) {
+    time_t durationSec = end.tv_sec - start.tv_sec;
+    time_t durationNSec = end.tv_nsec - start.tv_nsec;
+    time_t durationInNs = durationNSec + durationSec * NANOS_IN_SECOND;
+    return durationInNs;
 }
 
 class InternalDataListener : public MetricDataListener {
@@ -126,8 +134,6 @@ public:
 
         for (auto it = entries_.begin(); it != entries_.end(); ++it) {
             auto& entry = *it;
-            string metricName = string(entry.name);
-
             uint32_t metricId = findOrCreateMetricId(entry);
 
             // If the metricId we get back is 0 then we failed to publish the MetricInformation to the buffer
@@ -152,9 +158,7 @@ public:
 
         clock_gettime(CLOCK_REALTIME, &endCycle_);
 
-        __time_t durationSec = endCycle_.tv_sec - startCycle_.tv_sec;
-        __time_t durationNSec = endCycle_.tv_nsec - startCycle_.tv_nsec;
-        __time_t durationInNs = durationNSec + durationSec * NANOS_IN_SECOND;
+        const time_t durationInNs = deltaInNs(startCycle_, endCycle_);
 
         MetricSample durationSample{
             DURATION_ID,
@@ -210,6 +214,8 @@ private:
     timespec endCycle_;
 };
 
+#define deltaInMs(start, end) deltaInNs(startWork, endWork) / 1000000
+
 void Metrics::run() {
     try {
         InternalDataListener metricListener(metricNameToId, queue_);
@@ -218,23 +224,15 @@ void Metrics::run() {
 
         scan_threads();
 
+        timespec startWork {0};
+        timespec endWork {0};
+
         while (true) {
-            uint64_t durationInMs = sampleRateMillis_.load();
-            sleep_ms(durationInMs);
-
-            // NB: Don't holding the readersMutex when enqueuing because the retrying of the queue can
-            // deadlock with the processor thread.
-            if (mustSendDurationMetric.load()) {
-                metricNameToId.insert({DURATION_NAME, DURATION_ID});
-                while (!queue_.pushMetricInformation(DURATION_INFO)) {
-                    sleep_ms(1);
-                }
-
-                mustSendDurationMetric.store(false);
-            }
-
+            // First do all the necessary work on the duty cycle
+            clock_gettime(CLOCK_REALTIME, &startWork);
+            sendDurationMetricId();
             scan_threads();
-
+            bool hasRemainingEvents = false;
             {
                 // Take the lock because we're going to be using the readers
                 // (also not safe to read enabled without it)
@@ -243,7 +241,7 @@ void Metrics::run() {
                 if (enabled_) {
                     metricListener.start();
                     cpudataReader_->read(metricListener);
-                    eventRingReader_->read(metricListener);
+                    hasRemainingEvents = eventRingReader_->read(metricListener) > 0;
                     const bool noRemainingConstantsToSend = metricListener.flush();
                     if (needsToSendConstantMetrics) {
                         if (cpudataReader_->hasEmittedConstantMetrics() &&
@@ -254,11 +252,65 @@ void Metrics::run() {
                     }
                 }
             }
+
+            clock_gettime(CLOCK_REALTIME, &endWork);
+
+            time_t workInMs = deltaInMs(startWork, endWork);
+            printf("workInMs=%lu\n", workInMs);
+
+            // Calculate the remaining time on the duty cycle window
+            uint64_t sampleRateInMs = sampleRateMillis_.load();
+            if (sampleRateInMs > workInMs) {
+                uint64_t remainingWindowInMs = sampleRateInMs - workInMs;
+                printf("remainingWindowInMs=%lu\n", remainingWindowInMs);
+
+                // Poll as much as possible to try and eliminate the lost events messages
+                while (hasRemainingEvents) {
+                    clock_gettime(CLOCK_REALTIME, &startWork);
+                    {
+                        boost::lock_guard <boost::mutex> guard(readersMutex);
+                        if (enabled_) {
+                            metricListener.start();
+                            hasRemainingEvents = eventRingReader_->read(metricListener) > 0;
+                            metricListener.flush();
+                        } else {
+                            break;
+                        }
+                    }
+                    clock_gettime(CLOCK_REALTIME, &endWork);
+                    workInMs = deltaInMs(startWork, endWork);
+                    printf("elimination poll workInMs=%lu\n", workInMs);
+                    if (workInMs >= remainingWindowInMs) {
+                        remainingWindowInMs = 0;
+                    } else {
+                        remainingWindowInMs -= workInMs;
+                    }
+                }
+
+                // Sleep for any remaining time on the duty cycle
+                printf("remaining sleep in ms=%lu\n", remainingWindowInMs);
+                if (remainingWindowInMs > 0) {
+                    sleep_ms(remainingWindowInMs);
+                }
+            }
         }
     } catch (const std::exception& e) {
         const char* what = e.what();
         logError(what);
         queue_.pushNotification(data::NotificationCategory::INFO_LOGGING, what);
+    }
+}
+
+void
+Metrics::sendDurationMetricId() {// NB: Don't holding the readersMutex when enqueuing because the retrying of the queue can
+// deadlock with the processor thread.
+    if (mustSendDurationMetric.load()) {
+        metricNameToId.insert({DURATION_NAME, DURATION_ID});
+        while (!queue_.pushMetricInformation(DURATION_INFO)) {
+            sleep_ms(1);
+        }
+
+        mustSendDurationMetric.store(false);
     }
 }
 

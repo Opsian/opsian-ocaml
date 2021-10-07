@@ -65,6 +65,8 @@ private:
     boost::mutex readersMutex;
     unordered_map<string, uint32_t> metricNameToId;
     bool needsToSendConstantMetrics;
+
+    void sendDurationMetricId();
 };
 
 #endif // METRICS_H
