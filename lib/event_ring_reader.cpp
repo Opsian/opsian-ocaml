@@ -18,8 +18,7 @@ static const string RUN_PARAM_NAME = string("ocaml.runparam");
 static const int MAX_EVENTS = 5000;
 static std::atomic_bool calledStart_(false);
 
-// TODO: understand the message cutoff bug
-// TODO: maybe pause eventring when we disconnect so we don't spam server on reconnect?
+// TODO: fix the > 65k messages issue server side
 // TODO: timestamps are nanoseconds
 // TODO: fix the metric duration being inaccurate
 
