@@ -185,7 +185,7 @@ public:
     bool pushNotification(data::NotificationCategory category, const char* payload, const int value);
 
     bool pushMetricInformation(const MetricInformation& info);
-    bool pushMetricSamples(vector<MetricSample>& metricSamples, timespec& time);
+    bool pushMetricSamples(vector<MetricSample>& metricSamples, const timespec& time);
 
     bool pushConstantMetricsComplete();
 

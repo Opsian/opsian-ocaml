@@ -18,7 +18,7 @@ static const MetricInformation DURATION_INFO{
     DURATION_ID,
     MetricVariability::VARIABLE,
     MetricDataType::LONG,
-    MetricUnit::MILLISECONDS // TODO: make this nanoseconds
+    MetricUnit::NANOSECONDS
 };
 
 bool isPrefixDisabled(const string& entryName, vector<string>& disabledPrefixes) {
@@ -115,20 +115,17 @@ public:
     InternalDataListener(unordered_map<string, uint32_t>& metricNameToId, CircularQueue& queue)
             : queue_(queue),
               metricNametoId_(metricNameToId),
-              entries_(),
-              startCycle_(),
-              endCycle_() {}
+              entries_() {}
 
     virtual void recordEntries(vector<MetricListenerEntry>& entries) {
         entries_.insert(entries_.end(), entries.begin(), entries.end());
     }
 
     virtual void start() {
-        clock_gettime(CLOCK_REALTIME, &startCycle_);
     }
 
     // We batch up all the metrics we've gathered and then flush them in one go, so we can also batch on the server side
-    virtual bool flush() {
+    virtual bool flush(const timespec& timestamp) {
         vector<MetricSample> samples;
         vector<MetricListenerEntry> failedConstantEntries;
 
@@ -156,17 +153,7 @@ public:
             samples.push_back(sample);
         }
 
-        clock_gettime(CLOCK_REALTIME, &endCycle_);
-
-        const time_t durationInNs = deltaInNs(startCycle_, endCycle_);
-
-        MetricSample durationSample{
-            DURATION_ID,
-            {MetricDataType::LONG, "", durationInNs}
-        };
-        samples.push_back(durationSample);
-
-        queue_.pushMetricSamples(samples, endCycle_);
+        queue_.pushMetricSamples(samples, timestamp);
 
         entries_ = failedConstantEntries;
 
@@ -176,6 +163,16 @@ public:
     virtual void recordNotification(const data::NotificationCategory category, const string& payload) {
         queue_.pushNotification(category, payload.c_str());
         (payload.c_str());
+    }
+
+    void sendDuration(const uint64_t durationInMs, const timespec& timestamp) {
+        MetricSample durationSample{
+            DURATION_ID,
+            {MetricDataType::LONG, "", (int64_t) durationInMs}
+        };
+        std::vector<MetricSample> samples{};
+        samples.push_back(durationSample);
+        queue_.pushMetricSamples(samples, timestamp);
     }
 
 private:
@@ -210,8 +207,6 @@ private:
     CircularQueue& queue_;
     unordered_map<string, uint32_t>& metricNametoId_;
     vector<MetricListenerEntry> entries_;
-    timespec startCycle_;
-    timespec endCycle_;
 };
 
 #define deltaInMs(start, end) deltaInNs(startWork, endWork) / 1000000
@@ -242,7 +237,7 @@ void Metrics::run() {
                     metricListener.start();
                     cpudataReader_->read(metricListener);
                     hasRemainingEvents = eventRingReader_->read(metricListener) > 0;
-                    const bool noRemainingConstantsToSend = metricListener.flush();
+                    const bool noRemainingConstantsToSend = metricListener.flush(startWork);
                     if (needsToSendConstantMetrics) {
                         if (cpudataReader_->hasEmittedConstantMetrics() &&
                             eventRingReader_->hasEmittedConstantMetrics() &&
@@ -256,13 +251,13 @@ void Metrics::run() {
             clock_gettime(CLOCK_REALTIME, &endWork);
 
             time_t workInMs = deltaInMs(startWork, endWork);
-            printf("workInMs=%lu\n", workInMs);
+//            printf("workInMs=%lu\n", workInMs);
 
             // Calculate the remaining time on the duty cycle window
-            uint64_t sampleRateInMs = sampleRateMillis_.load();
+            const uint64_t sampleRateInMs = sampleRateMillis_.load();
             if (sampleRateInMs > workInMs) {
                 uint64_t remainingWindowInMs = sampleRateInMs - workInMs;
-                printf("remainingWindowInMs=%lu\n", remainingWindowInMs);
+//                printf("remainingWindowInMs=%lu\n", remainingWindowInMs);
 
                 // Poll as much as possible to try and eliminate the lost events messages
                 while (hasRemainingEvents) {
@@ -272,14 +267,14 @@ void Metrics::run() {
                         if (enabled_) {
                             metricListener.start();
                             hasRemainingEvents = eventRingReader_->read(metricListener) > 0;
-                            metricListener.flush();
+                            metricListener.flush(startWork);
                         } else {
                             break;
                         }
                     }
                     clock_gettime(CLOCK_REALTIME, &endWork);
                     workInMs = deltaInMs(startWork, endWork);
-                    printf("elimination poll workInMs=%lu\n", workInMs);
+//                    printf("elimination poll workInMs=%lu\n", workInMs);
                     if (workInMs >= remainingWindowInMs) {
                         remainingWindowInMs = 0;
                     } else {
@@ -287,8 +282,11 @@ void Metrics::run() {
                     }
                 }
 
+                const uint64_t durationInMs = sampleRateInMs - remainingWindowInMs;
+                metricListener.sendDuration(durationInMs, endWork);
+
                 // Sleep for any remaining time on the duty cycle
-                printf("remaining sleep in ms=%lu\n", remainingWindowInMs);
+//                printf("remaining sleep in ms=%lu\n", remainingWindowInMs);
                 if (remainingWindowInMs > 0) {
                     sleep_ms(remainingWindowInMs);
                 }
@@ -302,8 +300,9 @@ void Metrics::run() {
 }
 
 void
-Metrics::sendDurationMetricId() {// NB: Don't holding the readersMutex when enqueuing because the retrying of the queue can
-// deadlock with the processor thread.
+Metrics::sendDurationMetricId() {
+    // NB: Don't holding the readersMutex when enqueuing because the retrying of the queue can
+    // deadlock with the processor thread.
     if (mustSendDurationMetric.load()) {
         metricNameToId.insert({DURATION_NAME, DURATION_ID});
         while (!queue_.pushMetricInformation(DURATION_INFO)) {

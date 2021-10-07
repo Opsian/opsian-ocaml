@@ -31,7 +31,8 @@ enum class MetricUnit {
     EVENTS = 4,
     STRING = 5,
     HERTZ = 6,
-    MILLISECONDS = 7
+    MILLISECONDS = 7,
+    NANOSECONDS = 8
 };
 
 struct MetricData {

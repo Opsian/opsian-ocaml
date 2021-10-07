@@ -112,7 +112,7 @@ bool CircularQueue::pushMetricInformation(
     return true;
 }
 
-bool CircularQueue::pushMetricSamples(vector<MetricSample>& metricSamples, timespec& time) {
+bool CircularQueue::pushMetricSamples(vector<MetricSample>& metricSamples, const timespec& time) {
 
     size_t currentInput;
 

@@ -466,6 +466,8 @@ data::MetricUnit mapUnit(MetricUnit in) {
             return data::MetricUnit::HERTZ;
         case MetricUnit::MILLISECONDS:
             return data::MetricUnit::MILLISECONDS;
+        case MetricUnit::NANOSECONDS:
+            return data::MetricUnit::NANOSECONDS;
         default:
             return data::MetricUnit::UNKNOWN_UNIT;
     }

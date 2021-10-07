@@ -18,10 +18,6 @@ static const string RUN_PARAM_NAME = string("ocaml.runparam");
 static const int MAX_EVENTS = 5000;
 static std::atomic_bool calledStart_(false);
 
-// TODO: fix the > 65k messages issue server side
-// TODO: timestamps are nanoseconds
-// TODO: fix the metric duration being inaccurate
-
 #define CAML_HAS_EVENTRING
 
 #ifdef CAML_HAS_EVENTRING
@@ -123,10 +119,10 @@ public:
             entry.data.valueLong = lostEvents_;
 
             addEntry(entry);
-            printf("lostEvents_=%d\n", lostEvents_);
+//            printf("lostEvents_=%d\n", lostEvents_);
         }
 
-        printf("len=%lu\n", entries_.size());
+//        printf("len=%lu\n", entries_.size());
         if (!entries_.empty()) {
             listener_.recordEntries(entries_);
         }
@@ -180,7 +176,7 @@ void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     struct MetricListenerEntry entry{};
 
     entry.name = state.eventName;
-    entry.unit = MetricUnit::MILLISECONDS;
+    entry.unit = MetricUnit::NANOSECONDS;
     entry.variability = MetricVariability::VARIABLE;
     entry.data.type = MetricDataType::LONG;
     entry.data.valueLong = duration;
@@ -295,7 +291,7 @@ uint32_t EventRingReader::read(MetricDataListener& listener) {
         if (cursor_ != nullptr) {
             PollState pollState(listener);
             int eventsRead = caml_eventring_read_poll(cursor_, &callbacks_, &pollState, MAX_EVENTS);
-            printf("eventsRead=%d\n", eventsRead);
+//            printf("eventsRead=%d\n", eventsRead);
             events += eventsRead;
             pollState.push();
         }
