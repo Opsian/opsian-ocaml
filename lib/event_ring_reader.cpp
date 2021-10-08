@@ -21,12 +21,37 @@ static std::atomic_bool calledStart_(false);
 #define CAML_HAS_EVENTRING
 
 #ifdef CAML_HAS_EVENTRING
+
 static const bool hasEventRing_ = true;
 extern "C" {
     #include "caml/eventring.h"
+    #include "caml/version.h"
 }
 
 #include <unordered_map>
+#include <unordered_set>
+
+static const std::unordered_set<ev_runtime_phase> REQUIRED_PHASES {
+    EV_MINOR, // Pause time for minor collection
+    EV_MAJOR // Sum of pause time slices for major collections
+};
+static const std::unordered_set<ev_runtime_counter> REQUIRED_COUNTERS {
+    // Causes of minor collections starting:
+    EV_C_FORCE_MINOR_ALLOC_SMALL,
+    EV_C_FORCE_MINOR_MAKE_VECT,
+    EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE,
+    EV_C_FORCE_MINOR_WEAK,
+    EV_C_FORCE_MINOR_MEMPROF,
+    // amount promoted from the minor heap to the major heap on each minor collection
+    EV_C_MINOR_PROMOTED
+
+    #if OCAML_VERSION >= 50000
+        // Multicore only counters:
+        ,
+        // amount of allocation in the previous minor cycle
+        EV_C_MINOR_ALLOCATED
+    #endif
+};
 
 static const char* const EV_PHASE_NAMES[] = {
     "EV_COMPACT_MAIN",
@@ -142,6 +167,10 @@ static std::unordered_map<ev_runtime_phase, EventState> phaseToEventState_{};
 
 void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     // printf("eventRingBegin %lu %d\n", timestamp, phase);
+    if (REQUIRED_PHASES.find(phase) == REQUIRED_PHASES.end()) {
+        return;
+    }
+
     PollState* pollState = (PollState*) data;
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
@@ -161,6 +190,10 @@ void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
 
 void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     // printf("eventRingEnd %lu %d\n", timestamp, phase);
+    if (REQUIRED_PHASES.find(phase) == REQUIRED_PHASES.end()) {
+        return;
+    }
+
     PollState* pollState = (PollState*) data;
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
@@ -188,6 +221,10 @@ void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
 
 void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter, uint64_t value) {
     // printf("eventRingCounter %lu %d %lu %s\n", timestamp, counter, value, EV_COUNTER_NAMES[counter]);
+    if (REQUIRED_COUNTERS.find(counter) == REQUIRED_COUNTERS.end()) {
+        return;
+    }
+
     PollState* pollState = (PollState*) data;
     if (counter <= EV_COUNTER_NAMES_SIZE) {
         struct MetricListenerEntry entry{};
