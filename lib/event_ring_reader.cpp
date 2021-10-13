@@ -15,6 +15,7 @@ static const string EVENT_RING_NAME = string("ocaml.eventring");
 static const string ENABLED_NAME = string("ocaml.eventring.enabled");
 static const string LOST_EVENTS_NAME = string("ocaml.eventring.lost_events");
 static const string RUN_PARAM_NAME = string("ocaml.runparam");
+static const string VERSION_PARAM_NAME = string("ocaml.version");
 static const uint MAX_EVENTS = 60000;
 static std::atomic_bool calledStart_(false);
 
@@ -365,6 +366,14 @@ void EventRingReader::emitConstantMetrics(MetricDataListener& listener) const {
         runParamEvent.data.valueString = runParam;
         constantMetrics.push_back(runParamEvent);
     }
+
+    MetricListenerEntry versionEvent{};
+    versionEvent.name = VERSION_PARAM_NAME;
+    versionEvent.unit = MetricUnit::NONE;
+    versionEvent.variability = MetricVariability::CONSTANT;
+    versionEvent.data.type = MetricDataType::STRING;
+    versionEvent.data.valueString = OCAML_VERSION_STRING;
+    constantMetrics.push_back(versionEvent);
 
     listener.recordEntries(constantMetrics);
 }
