@@ -15,7 +15,7 @@ static const string EVENT_RING_NAME = string("ocaml.eventring");
 static const string ENABLED_NAME = string("ocaml.eventring.enabled");
 static const string LOST_EVENTS_NAME = string("ocaml.eventring.lost_events");
 static const string RUN_PARAM_NAME = string("ocaml.runparam");
-static const int MAX_EVENTS = 5000;
+static const uint MAX_EVENTS = 60000;
 static std::atomic_bool calledStart_(false);
 
 #define CAML_HAS_EVENTRING
@@ -328,7 +328,7 @@ uint32_t EventRingReader::read(MetricDataListener& listener) {
         #ifdef CAML_HAS_EVENTRING
         if (cursor_ != nullptr) {
             PollState pollState(listener);
-            int eventsRead = caml_eventring_read_poll(cursor_, &callbacks_, &pollState, MAX_EVENTS);
+            uint eventsRead = caml_eventring_read_poll(cursor_, &callbacks_, &pollState, MAX_EVENTS);
 //            printf("eventsRead=%d\n", eventsRead);
             events += eventsRead;
             pollState.push();
