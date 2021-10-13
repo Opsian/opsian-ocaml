@@ -35,6 +35,7 @@ static const std::unordered_set<ev_runtime_phase> REQUIRED_PHASES {
     EV_MINOR, // Pause time for minor collection
     EV_MAJOR // Sum of pause time slices for major collections
 };
+
 static const std::unordered_set<ev_runtime_counter> REQUIRED_COUNTERS {
     // Causes of minor collections starting:
     EV_C_FORCE_MINOR_ALLOC_SMALL,
@@ -42,13 +43,13 @@ static const std::unordered_set<ev_runtime_counter> REQUIRED_COUNTERS {
     EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE,
     EV_C_FORCE_MINOR_WEAK,
     EV_C_FORCE_MINOR_MEMPROF,
-    // amount promoted from the minor heap to the major heap on each minor collection
+    // amount promoted from the minor heap to the major heap on each minor collection in terms of machine words
     EV_C_MINOR_PROMOTED
 
     #if OCAML_VERSION >= 50000
         // Multicore only counters:
         ,
-        // amount of allocation in the previous minor cycle
+        // amount of allocation in the previous minor cycle in terms of machine words
         EV_C_MINOR_ALLOCATED
     #endif
 };
