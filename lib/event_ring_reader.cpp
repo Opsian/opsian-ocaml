@@ -56,59 +56,59 @@ static const std::unordered_set<ev_runtime_counter> REQUIRED_COUNTERS {
 };
 
 static const char* const EV_PHASE_NAMES[] = {
-    "EV_COMPACT_MAIN",
-    "EV_COMPACT_RECOMPACT",
-    "EV_EXPLICIT_GC_SET",
-    "EV_EXPLICIT_GC_STAT",
-    "EV_EXPLICIT_GC_MINOR",
-    "EV_EXPLICIT_GC_MAJOR",
-    "EV_EXPLICIT_GC_FULL_MAJOR",
-    "EV_EXPLICIT_GC_COMPACT",
-    "EV_MAJOR",
-    "EV_MAJOR_ROOTS",
-    "EV_MAJOR_SWEEP",
-    "EV_MAJOR_MARK_ROOTS",
-    "EV_MAJOR_MARK_MAIN",
-    "EV_MAJOR_MARK_FINAL",
-    "EV_MAJOR_MARK",
-    "EV_MAJOR_MARK_GLOBAL_ROOTS_SLICE",
-    "EV_MAJOR_ROOTS_GLOBAL",
-    "EV_MAJOR_ROOTS_DYNAMIC_GLOBAL",
-    "EV_MAJOR_ROOTS_LOCAL",
-    "EV_MAJOR_ROOTS_C",
-    "EV_MAJOR_ROOTS_FINALISED",
-    "EV_MAJOR_ROOTS_MEMPROF",
-    "EV_MAJOR_ROOTS_HOOK",
-    "EV_MAJOR_CHECK_AND_COMPACT",
-    "EV_MINOR",
-    "EV_MINOR_LOCAL_ROOTS",
-    "EV_MINOR_REF_TABLES",
-    "EV_MINOR_COPY",
-    "EV_MINOR_UPDATE_WEAK",
-    "EV_MINOR_FINALIZED",
-    "EV_EXPLICIT_GC_MAJOR_SLICE"
+    "ocaml.eventring.EV_COMPACT_MAIN",
+    "ocaml.eventring.EV_COMPACT_RECOMPACT",
+    "ocaml.eventring.EV_EXPLICIT_GC_SET",
+    "ocaml.eventring.EV_EXPLICIT_GC_STAT",
+    "ocaml.eventring.EV_EXPLICIT_GC_MINOR",
+    "ocaml.eventring.EV_EXPLICIT_GC_MAJOR",
+    "ocaml.eventring.EV_EXPLICIT_GC_FULL_MAJOR",
+    "ocaml.eventring.EV_EXPLICIT_GC_COMPACT",
+    "ocaml.eventring.EV_MAJOR",
+    "ocaml.eventring.EV_MAJOR_ROOTS",
+    "ocaml.eventring.EV_MAJOR_SWEEP",
+    "ocaml.eventring.EV_MAJOR_MARK_ROOTS",
+    "ocaml.eventring.EV_MAJOR_MARK_MAIN",
+    "ocaml.eventring.EV_MAJOR_MARK_FINAL",
+    "ocaml.eventring.EV_MAJOR_MARK",
+    "ocaml.eventring.EV_MAJOR_MARK_GLOBAL_ROOTS_SLICE",
+    "ocaml.eventring.EV_MAJOR_ROOTS_GLOBAL",
+    "ocaml.eventring.EV_MAJOR_ROOTS_DYNAMIC_GLOBAL",
+    "ocaml.eventring.EV_MAJOR_ROOTS_LOCAL",
+    "ocaml.eventring.EV_MAJOR_ROOTS_C",
+    "ocaml.eventring.EV_MAJOR_ROOTS_FINALISED",
+    "ocaml.eventring.EV_MAJOR_ROOTS_MEMPROF",
+    "ocaml.eventring.EV_MAJOR_ROOTS_HOOK",
+    "ocaml.eventring.EV_MAJOR_CHECK_AND_COMPACT",
+    "ocaml.eventring.EV_MINOR",
+    "ocaml.eventring.EV_MINOR_LOCAL_ROOTS",
+    "ocaml.eventring.EV_MINOR_REF_TABLES",
+    "ocaml.eventring.EV_MINOR_COPY",
+    "ocaml.eventring.EV_MINOR_UPDATE_WEAK",
+    "ocaml.eventring.EV_MINOR_FINALIZED",
+    "ocaml.eventring.EV_EXPLICIT_GC_MAJOR_SLICE"
 };
 static const size_t EV_PHASE_NAMES_SIZE = sizeof(EV_PHASE_NAMES) / sizeof(char*);
 
 static const char* const EV_COUNTER_NAMES[] = {
-    "EV_C_ALLOC_JUMP",
-    "EV_C_FORCE_MINOR_ALLOC_SMALL",
-    "EV_C_FORCE_MINOR_MAKE_VECT",
-    "EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE",
-    "EV_C_FORCE_MINOR_WEAK",
-    "EV_C_FORCE_MINOR_MEMPROF",
-    "EV_C_MAJOR_MARK_SLICE_REMAIN",
-    "EV_C_MAJOR_MARK_SLICE_FIELDS",
-    "EV_C_MAJOR_MARK_SLICE_POINTERS",
-    "EV_C_MAJOR_WORK_EXTRA",
-    "EV_C_MAJOR_WORK_MARK",
-    "EV_C_MAJOR_WORK_SWEEP",
-    "EV_C_MINOR_PROMOTED",
-    "EV_C_REQUEST_MAJOR_ALLOC_SHR",
-    "EV_C_REQUEST_MAJOR_ADJUST_GC_SPEED",
-    "EV_C_REQUEST_MINOR_REALLOC_REF_TABLE",
-    "EV_C_REQUEST_MINOR_REALLOC_EPHE_REF_TABLE",
-    "EV_C_REQUEST_MINOR_REALLOC_CUSTOM_TABLE"
+    "ocaml.eventring.EV_C_ALLOC_JUMP",
+    "ocaml.eventring.EV_C_FORCE_MINOR_ALLOC_SMALL",
+    "ocaml.eventring.EV_C_FORCE_MINOR_MAKE_VECT",
+    "ocaml.eventring.EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE",
+    "ocaml.eventring.EV_C_FORCE_MINOR_WEAK",
+    "ocaml.eventring.EV_C_FORCE_MINOR_MEMPROF",
+    "ocaml.eventring.EV_C_MAJOR_MARK_SLICE_REMAIN",
+    "ocaml.eventring.EV_C_MAJOR_MARK_SLICE_FIELDS",
+    "ocaml.eventring.EV_C_MAJOR_WORK_EXTRA",
+    "ocaml.eventring.EV_C_MAJOR_WORK_MARK",
+    "ocaml.eventring.EV_C_MAJOR_MARK_SLICE_POINTERS",
+    "ocaml.eventring.EV_C_MAJOR_WORK_SWEEP",
+    "ocaml.eventring.EV_C_MINOR_PROMOTED",
+    "ocaml.eventring.EV_C_REQUEST_MAJOR_ALLOC_SHR",
+    "ocaml.eventring.EV_C_REQUEST_MAJOR_ADJUST_GC_SPEED",
+    "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_REF_TABLE",
+    "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_EPHE_REF_TABLE",
+    "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_CUSTOM_TABLE"
 };
 static const size_t EV_COUNTER_NAMES_SIZE = sizeof(EV_COUNTER_NAMES) / sizeof(char*);
 
@@ -167,7 +167,7 @@ static caml_eventring_callbacks callbacks_ = {0};
 
 static std::unordered_map<ev_runtime_phase, EventState> phaseToEventState_{};
 
-void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
+void eventRingBegin(int domainId, void* data, uint64_t timestamp, ev_runtime_phase phase) {
     // printf("eventRingBegin %lu %d\n", timestamp, phase);
     if (REQUIRED_PHASES.find(phase) == REQUIRED_PHASES.end()) {
         return;
@@ -179,7 +179,7 @@ void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
         if (phase <= EV_PHASE_NAMES_SIZE) {
             EventState eventState{};
             eventState.beginTimestamp = timestamp;
-            eventState.eventName = string("ocaml.eventring.") + EV_PHASE_NAMES[phase];
+            eventState.eventName = EV_PHASE_NAMES[phase];
             phaseToEventState_.insert({phase, eventState});
         } else {
             const string msg = "Unknown GC phase: " + std::to_string(phase);
@@ -190,7 +190,7 @@ void eventRingBegin(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     }
 }
 
-void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
+void eventRingEnd(int domainId, void* data, uint64_t timestamp, ev_runtime_phase phase) {
     // printf("eventRingEnd %lu %d\n", timestamp, phase);
     if (REQUIRED_PHASES.find(phase) == REQUIRED_PHASES.end()) {
         return;
@@ -216,22 +216,26 @@ void eventRingEnd(void* data, uint64_t timestamp, ev_runtime_phase phase) {
     entry.data.type = MetricDataType::LONG;
     entry.data.valueLong = duration;
 
+    // printf("%s=%lu\n", EV_PHASE_NAMES[phase], duration);
+
     pollState->addEntry(entry);
 
     phaseToEventState_.erase(it);
 }
 
-void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter, uint64_t value) {
+void eventRingCounter(int domainId, void* data, uint64_t timestamp, ev_runtime_counter counter, uint64_t value) {
     // printf("eventRingCounter %lu %d %lu %s\n", timestamp, counter, value, EV_COUNTER_NAMES[counter]);
     if (REQUIRED_COUNTERS.find(counter) == REQUIRED_COUNTERS.end()) {
         return;
     }
 
+    // printf("%s: %lu %lu\n", EV_COUNTER_NAMES[counter], timestamp, value);
+
     PollState* pollState = (PollState*) data;
     if (counter <= EV_COUNTER_NAMES_SIZE) {
         struct MetricListenerEntry entry{};
 
-        entry.name = string("ocaml.eventring.") + EV_COUNTER_NAMES[counter];
+        entry.name = EV_COUNTER_NAMES[counter];
         entry.unit = MetricUnit::NONE;
         entry.variability = MetricVariability::VARIABLE;
         entry.data.type = MetricDataType::LONG;
@@ -245,7 +249,7 @@ void eventRingCounter(void* data, uint64_t timestamp, ev_runtime_counter counter
     }
 }
 
-void eventRingLostEvents(void* data, int lost_events) {
+void eventRingLostEvents(int domainId, void* data, int lost_events) {
     // printf("eventRingLostEvents %d\n", lost_events);
     PollState* pollState = (PollState*) data;
     pollState->lostEvents(lost_events);
@@ -289,9 +293,8 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
         }
 
         cursor_ = caml_eventring_create_cursor(NULL, Caml_state->eventlog_startup_pid);
-        if (!cursor_) {
+        if (cursor_ == nullptr) {
             logError("invalid or non-existent cursor\n");
-            cursor_ = nullptr;
         }
     } else if (wasEnabled && !enabled) {
         // on stop
