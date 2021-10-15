@@ -23,6 +23,8 @@ static std::atomic_bool calledStart_(false);
 
 #ifdef CAML_HAS_EVENTRING
 
+static const int MONITOR_THIS_PROCESS = -1;
+
 static const bool hasEventRing_ = true;
 extern "C" {
     #include "caml/eventring.h"
@@ -292,7 +294,7 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             caml_release_runtime_system();
         }
 
-        cursor_ = caml_eventring_create_cursor(NULL, Caml_state->eventlog_startup_pid);
+        cursor_ = caml_eventring_create_cursor(NULL, MONITOR_THIS_PROCESS);
         if (cursor_ == nullptr) {
             logError("invalid or non-existent cursor\n");
         }
