@@ -2,15 +2,6 @@
 #include <cstdlib>
 #include "globals.h"
 
-extern "C" {
-#define CAML_NAME_SPACE
-
-#include <caml/misc.h> // CamlExtern
-#include <caml/threads.h> // runtime lock
-#include <caml/eventring.h>
-#include <caml/mlvalues.h> // Caml_state
-}
-
 static const string EVENT_RING_NAME = string("ocaml.eventring");
 static const string ENABLED_NAME = string("ocaml.eventring.enabled");
 static const string LOST_EVENTS_NAME = string("ocaml.eventring.lost_events");
@@ -19,7 +10,15 @@ static const string VERSION_PARAM_NAME = string("ocaml.version");
 static const uint MAX_EVENTS = 60000;
 static std::atomic_bool calledStart_(false);
 
-#define CAML_HAS_EVENTRING
+extern "C" {
+    #define CAML_NAME_SPACE
+
+    #include <caml/misc.h> // CamlExtern
+    #include <caml/threads.h> // runtime lock
+    #include <caml/mlvalues.h> // Caml_state
+    #include <caml/eventlog.h>
+    #include "caml/version.h"
+}
 
 #ifdef CAML_HAS_EVENTRING
 
@@ -28,7 +27,6 @@ static const int MONITOR_THIS_PROCESS = -1;
 static const bool hasEventRing_ = true;
 extern "C" {
     #include "caml/eventring.h"
-    #include "caml/version.h"
 }
 
 #include <unordered_map>
@@ -306,16 +304,18 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
 
 // Called on processor thread with readersMutex
 void EventRingReader::disable() {
-    if (enabled_ && calledStart_) {
-        caml_acquire_runtime_system();
-        caml_eventring_pause();
-        caml_release_runtime_system();
-    }
+    #ifdef CAML_HAS_EVENTRING
+        if (enabled_ && calledStart_) {
+            caml_acquire_runtime_system();
+            caml_eventring_pause();
+            caml_release_runtime_system();
+        }
 
-    if (cursor_ != nullptr) {
-        caml_eventring_free_cursor(cursor_);
-        cursor_ = nullptr;
-    }
+        if (cursor_ != nullptr) {
+            caml_eventring_free_cursor(cursor_);
+            cursor_ = nullptr;
+        }
+    #endif
 }
 
 uint32_t EventRingReader::read(MetricDataListener& listener) {
