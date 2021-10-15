@@ -201,9 +201,6 @@ void eventRingEnd(int domainId, void* data, uint64_t timestamp, ev_runtime_phase
     PollState* pollState = (PollState*) data;
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
-        // TODO: re-enable this warning once we've improved polling frequency
-        // const string msg = string("Received end without begin for phase: ") + EV_PHASE_NAMES[phase];
-        // pollState->emitWarning(msg);
         return;
     }
 
