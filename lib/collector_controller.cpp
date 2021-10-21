@@ -264,7 +264,7 @@ void CollectorController::sendHello() {
     context->set_agent_version(AGENT_VERSION);
     context->set_agent_type(data::AgentType::OCAML);
     context->set_host_name(hostname_);
-    context->set_jvm_version(ocamlVersion_);
+    context->set_platform_version(ocamlVersion_);
     context->set_hardware_thread_count(processorCount);
     if (!applicationVersion_.empty()) {
         context->set_application_version(applicationVersion_);
@@ -277,6 +277,7 @@ void CollectorController::sendHello() {
     localtime_r(&currentTime, &tm);
     context->set_timezone_name(tm.tm_zone);
     context->set_timezone_offset_seconds(tm.tm_gmtoff);
+    context->set_personality(data::PERS_OCAML);
 
     recordWithSize(agentEnvelope);
 }

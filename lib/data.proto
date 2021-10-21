@@ -5,10 +5,15 @@ option java_outer_classname = "WestProfProto";
 
 package data;
 
+enum PersonalityType {
+  PERS_JVM = 0;
+  PERS_OCAML = 1;
+}
+
 message Context {
     string agent_id = 2;
     string host_name = 3;
-    string jvm_version = 4;
+    string platform_version = 4;
     string application_version = 5;
     uint32 agent_version = 6;
     AgentType agent_type = 7;
@@ -25,6 +30,7 @@ message Context {
     string timezone_name = 12;
     // seconds east of UTC
     int64 timezone_offset_seconds = 13;
+    PersonalityType personality = 14;
 }
 
 message StackSample {
