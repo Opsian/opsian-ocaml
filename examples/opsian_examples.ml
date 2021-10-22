@@ -141,16 +141,25 @@ let native_callback () =
   done
   [@@inline never]
 
-let gc force_gc =
-  Printf.printf "Starting gc: %s\n%!" (if force_gc then "forced" else "unforced");
-  while true ; do
-      ignore(Sys.opaque_identity(ref 42));
-      if force_gc then begin
-        Gc.compact ();
-        Thread.yield ();
-        Unix.sleepf(0.000001)
-      end
-  done;
+let gc_body force_gc =
+  ignore(Sys.opaque_identity(ref 42));
+  if force_gc then begin
+    Gc.compact ();
+    Thread.yield ();
+    Unix.sleepf(0.000001)
+  end
+
+let gc force_gc count =
+  Printf.printf "Starting gc: %s %d!\n" (if force_gc then "forced" else "unforced") count;
+  if (count == -1) then
+    while true do
+      gc_body force_gc
+    done
+  else
+    for i = 0 to count do
+      ignore(i);
+      gc_body force_gc
+    done;
   Printf.printf "Done!\n%!"
 
 let () =
@@ -169,6 +178,6 @@ let () =
   | "forks"::fork_times::[] -> forks (int_of_string fork_times)
   | "native_register"::[] -> native_register_2 ()
   | "native_callback"::[] -> native_callback ()
-  | "gc"::[] -> gc true
-  | "gc"::"unforced"::[] -> gc false
+  | "gc"::"unforced"::count::[] -> gc false (int_of_string count)
+  | "gc"::count::[] -> gc true (int_of_string count)
   | _ -> Printf.printf "Unknown \n";
