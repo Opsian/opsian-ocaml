@@ -109,7 +109,8 @@ static const char* const EV_COUNTER_NAMES[] = {
     "ocaml.eventring.EV_C_REQUEST_MAJOR_ADJUST_GC_SPEED",
     "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_REF_TABLE",
     "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_EPHE_REF_TABLE",
-    "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_CUSTOM_TABLE"
+    "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_CUSTOM_TABLE",
+    "ocaml.eventring.EV_C_MINOR_ALLOCATED"
 };
 static const size_t EV_COUNTER_NAMES_SIZE = sizeof(EV_COUNTER_NAMES) / sizeof(char*);
 
