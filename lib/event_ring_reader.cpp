@@ -23,6 +23,7 @@ extern "C" {
 #ifdef CAML_HAS_EVENTRING
 
 static const int MONITOR_THIS_PROCESS = -1;
+static const int WORD_SIZE = sizeof(unsigned);
 
 static const bool hasEventRing_ = true;
 extern "C" {
@@ -228,12 +229,23 @@ void eventRingCounter(int domainId, void* data, uint64_t timestamp, ev_runtime_c
 
     // printf("%s: %lu %lu\n", EV_COUNTER_NAMES[counter], timestamp, value);
 
+    MetricUnit unit = MetricUnit::EVENTS;
+
+    if (counter == EV_C_MINOR_PROMOTED
+    #if OCAML_VERSION >= 50000
+        || counter == EV_C_MINOR_ALLOCATED
+    #endif
+    ) {
+        value *= WORD_SIZE;
+        unit = MetricUnit::BYTES;
+    }
+
     PollState* pollState = (PollState*) data;
     if (counter <= EV_COUNTER_NAMES_SIZE) {
         struct MetricListenerEntry entry{};
 
         entry.name = EV_COUNTER_NAMES[counter];
-        entry.unit = MetricUnit::NONE;
+        entry.unit = unit;
         entry.variability = MetricVariability::VARIABLE;
         entry.data.type = MetricDataType::LONG;
         // uint64 to int64 conversion
