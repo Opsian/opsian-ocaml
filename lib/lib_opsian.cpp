@@ -151,17 +151,25 @@ void child_fork() {
 // END Fork Callbacks
 // ---------------------
 
+char* copy(char* source, const size_t size) {
+    char* result = new char[size + 1];
+    strncpy(result, source, size + 1);
+    return result;
+}
+
 CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str) {
 //    signal(SIGSEGV, crashHandler);
 
     const char* ocaml_version = String_val(ocaml_version_str);
 
-    OCAML_EXE_NAME = (char*) String_val(ocaml_executable_name_str);
+    char* ocaml_exe_name = (char*) String_val(ocaml_executable_name_str);
     OCAML_EXE_NAME_LEN = caml_string_length(ocaml_executable_name_str);
+    OCAML_EXE_NAME = copy(ocaml_exe_name, OCAML_EXE_NAME_LEN);
 
-    OCAML_ARGV0 = (char*) String_val(ocaml_argv0_str);
+    char* ocaml_argv0 = (char*) String_val(ocaml_argv0_str);
     OCAML_ARGV0_LEN = caml_string_length(ocaml_argv0_str);
+    OCAML_ARGV0 = copy(ocaml_argv0, OCAML_ARGV0_LEN);
 
     std::istringstream(AGENT_VERSION_STR) >> AGENT_VERSION;
 
