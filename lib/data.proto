@@ -5,6 +5,7 @@ option java_outer_classname = "WestProfProto";
 
 package data;
 
+// Personality types should be prefixed with PERS to avoid codegen clashes with data types
 enum PersonalityType {
   PERS_JVM = 0;
   PERS_OCAML = 1;
