@@ -111,7 +111,7 @@ public:
     virtual void recordMetricInformation(const MetricInformation& metricInformation);
 
     // override
-    virtual void recordMetricSamples(const timespec&ts, const vector<MetricSample>& metricSamples);
+    virtual void recordMetricSamples(const long time_epoch_millis, const vector<MetricSample>& metricSamples);
 
     // override
     virtual void recordAllocationTable();

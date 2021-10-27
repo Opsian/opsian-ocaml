@@ -20,6 +20,8 @@ extern "C" {
     #include "caml/version.h"
 }
 
+// #define CAML_HAS_EVENTRING 1
+
 #ifdef CAML_HAS_EVENTRING
 
 static const int MONITOR_THIS_PROCESS = -1;
@@ -122,15 +124,23 @@ struct EventState {
 class PollState {
 public:
     PollState(MetricDataListener& listener)
-        : listener_(listener), entries_(), lostEvents_(0) {
+        : listener_(listener), entries_(), lostEvents_(0), lastTimestampInMs_(0) {
     }
 
     void emitWarning(const string& message) {
         listener_.recordNotification(data::NotificationCategory::USER_WARNING, message);
     }
 
-    void addEntry(MetricListenerEntry& entry) {
-        entries_.push_back(entry);
+    void addEntry(MetricListenerEntry& entry, uint64_t timestampInNs) {
+        uint64_t timestampInMs = timestampInNs / NS_IN_MS;
+        if (lastTimestampInMs_ == 0) {
+            lastTimestampInMs_ = timestampInMs;
+        } else if (lastTimestampInMs_ != timestampInMs) {
+            push();
+            lastTimestampInMs_ = timestampInMs;
+        }
+
+        addEntry(entry);
     }
 
     void lostEvents(int lostEvents) {
@@ -138,22 +148,24 @@ public:
     }
 
     void push() {
-        if (lostEvents_ > 0) {
-            struct MetricListenerEntry entry{};
-
-            entry.name = LOST_EVENTS_NAME;
-            entry.unit = MetricUnit::NONE;
-            entry.variability = MetricVariability::VARIABLE;
-            entry.data.type = MetricDataType::LONG;
-            entry.data.valueLong = lostEvents_;
-
-            addEntry(entry);
-//            printf("lostEvents_=%d\n", lostEvents_);
-        }
-
-//        printf("len=%lu\n", entries_.size());
+//        printf("len=%lu\n", retryEntries_.size());
         if (!entries_.empty()) {
-            listener_.recordEntries(entries_);
+            if (lostEvents_ > 0) {
+                struct MetricListenerEntry entry{};
+
+                entry.name = LOST_EVENTS_NAME;
+                entry.unit = MetricUnit::NONE;
+                entry.variability = MetricVariability::VARIABLE;
+                entry.data.type = MetricDataType::LONG;
+                entry.data.valueLong = lostEvents_;
+
+                addEntry(entry);
+                lostEvents_ = 0;
+//            printf("lostEvents_=%d\n", lostEvents_);
+            }
+
+            listener_.recordEntries(entries_, lastTimestampInMs_);
+            entries_.clear();
         }
     }
 
@@ -161,6 +173,11 @@ private:
     MetricDataListener& listener_;
     vector<MetricListenerEntry> entries_;
     int lostEvents_;
+    uint64_t lastTimestampInMs_;
+
+    void addEntry(MetricListenerEntry& entry) {
+        entries_.push_back(entry);
+    }
 };
 
 static caml_eventring_cursor* cursor_ = nullptr;
@@ -217,7 +234,7 @@ void eventRingEnd(int domainId, void* data, uint64_t timestamp, ev_runtime_phase
 
     // printf("%s=%lu\n", EV_PHASE_NAMES[phase], duration);
 
-    pollState->addEntry(entry);
+    pollState->addEntry(entry, timestamp);
 
     phaseToEventState_.erase(it);
 }
@@ -252,7 +269,7 @@ void eventRingCounter(int domainId, void* data, uint64_t timestamp, ev_runtime_c
         // uint64 to int64 conversion
         entry.data.valueLong = value;
 
-        pollState->addEntry(entry);
+        pollState->addEntry(entry, timestamp);
     } else {
         const string msg = "Unknown GC counter: " + std::to_string(counter);
         pollState->emitWarning(msg);
@@ -331,11 +348,11 @@ void EventRingReader::disable() {
     #endif
 }
 
-uint32_t EventRingReader::read(MetricDataListener& listener) {
+uint32_t EventRingReader::read(MetricDataListener& listener, const long timestampInMs) {
     uint32_t events = 0;
     if (enabled_) {
         if (!hasEmittedConstantMetrics_) {
-            emitConstantMetrics(listener);
+            emitConstantMetrics(listener, timestampInMs);
             events++;
 
             hasEmittedConstantMetrics_ = true;
@@ -355,7 +372,7 @@ uint32_t EventRingReader::read(MetricDataListener& listener) {
     return events;
 }
 
-void EventRingReader::emitConstantMetrics(MetricDataListener& listener) const {
+void EventRingReader::emitConstantMetrics(MetricDataListener &listener, const long timestampInMs) const {
     vector<MetricListenerEntry> constantMetrics{};
 
     MetricListenerEntry hasEventRingEntry{};
@@ -390,7 +407,7 @@ void EventRingReader::emitConstantMetrics(MetricDataListener& listener) const {
     versionEvent.data.valueString = OCAML_VERSION_STRING;
     constantMetrics.push_back(versionEvent);
 
-    listener.recordEntries(constantMetrics);
+    listener.recordEntries(constantMetrics, timestampInMs);
 }
 
 const bool EventRingReader::hasEmittedConstantMetrics() {

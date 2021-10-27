@@ -205,9 +205,6 @@ void bootstrapHandle(int signum, siginfo_t *info, void *context) {
 }
 
 void sleep_ms(uint64_t durationInMs) {
-    #define NS_IN_MS 1000000
-    #define MS_IN_S 1000
-
     // Uses Posix function.
     timespec duration;
     duration.tv_sec = durationInMs / MS_IN_S;

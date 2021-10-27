@@ -491,11 +491,11 @@ void LogWriter::recordMetricInformation(const MetricInformation& info) {
 }
 
 // override
-void LogWriter::recordMetricSamples(const timespec& ts, const vector<MetricSample>& metricSamples) {
+void LogWriter::recordMetricSamples(const long time_epoch_millis, const vector<MetricSample>& metricSamples) {
     auto samples_envelope = frameAgentEnvelope_.mutable_metric_samples();
 
-    const long time_epoch_millis = (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
     samples_envelope->set_time_epoch_millis(static_cast<google::protobuf::uint64>(time_epoch_millis));
+    samples_envelope->clear_samples();
 
     for (auto it = metricSamples.begin(); it != metricSamples.end(); ++it) {
         auto& sample = *it;

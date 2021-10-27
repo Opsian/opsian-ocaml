@@ -32,6 +32,10 @@ bool isPrefixDisabled(const string& entryName, vector<string>& disabledPrefixes)
     return false;
 }
 
+long toEpochMillis(const timespec& timestamp) {
+    return (timestamp.tv_sec * 1000) + (timestamp.tv_nsec / 1000000);
+}
+
 void* callbackToRunMetrics(void* arg) {
     // Avoid having the metrics thread also receive the PROF signals
     sigset_t mask;
@@ -115,21 +119,29 @@ public:
     InternalDataListener(unordered_map<string, uint32_t>& metricNameToId, CircularQueue& queue)
             : queue_(queue),
               metricNametoId_(metricNameToId),
-              entries_() {}
+              retryEntries_() {}
 
-    virtual void recordEntries(vector<MetricListenerEntry>& entries) {
-        entries_.insert(entries_.end(), entries.begin(), entries.end());
-    }
+    virtual void recordEntries(
+        vector<MetricListenerEntry>& entries,
+        const long timestampInMs) {
 
-    virtual void start() {
-    }
-
-    // We batch up all the metrics we've gathered and then flush them in one go, so we can also batch on the server side
-    virtual bool flush(const timespec& timestamp) {
         vector<MetricSample> samples;
         vector<MetricListenerEntry> failedConstantEntries;
 
-        for (auto it = entries_.begin(); it != entries_.end(); ++it) {
+        attemptRecordEntries(entries, samples, failedConstantEntries);
+        attemptRecordEntries(retryEntries_, samples, failedConstantEntries);
+
+        queue_.pushMetricSamples(samples, timestampInMs);
+
+        retryEntries_ = failedConstantEntries;
+    }
+
+    void attemptRecordEntries(
+        const vector <MetricListenerEntry> &entries,
+        vector <MetricSample> &samples,
+        vector <MetricListenerEntry> &failedConstantEntries) {
+
+        for (auto it = entries.begin(); it != entries.end(); ++it) {
             auto& entry = *it;
             uint32_t metricId = findOrCreateMetricId(entry);
 
@@ -152,12 +164,10 @@ public:
 
             samples.push_back(sample);
         }
+    }
 
-        queue_.pushMetricSamples(samples, timestamp);
-
-        entries_ = failedConstantEntries;
-
-        return failedConstantEntries.empty();
+    bool noRemainingConstantsToSend() {
+        return retryEntries_.empty();
     }
 
     virtual void recordNotification(const data::NotificationCategory category, const string& payload) {
@@ -172,7 +182,7 @@ public:
         };
         std::vector<MetricSample> samples{};
         samples.push_back(durationSample);
-        queue_.pushMetricSamples(samples, timestamp);
+        queue_.pushMetricSamples(samples, toEpochMillis(timestamp));
     }
 
 private:
@@ -206,7 +216,7 @@ private:
 
     CircularQueue& queue_;
     unordered_map<string, uint32_t>& metricNametoId_;
-    vector<MetricListenerEntry> entries_;
+    vector<MetricListenerEntry> retryEntries_;
 };
 
 #define deltaInMs(start, end) deltaInNs(startWork, endWork) / 1000000
@@ -225,6 +235,7 @@ void Metrics::run() {
         while (true) {
             // First do all the necessary work on the duty cycle
             clock_gettime(CLOCK_REALTIME, &startWork);
+            const long startWorkInMs = toEpochMillis(startWork);
             sendDurationMetricId();
             scan_threads();
             bool hasRemainingEvents = false;
@@ -234,10 +245,9 @@ void Metrics::run() {
                 boost::lock_guard<boost::mutex> guard(readersMutex);
 
                 if (enabled_) {
-                    metricListener.start();
-                    cpudataReader_->read(metricListener);
-                    hasRemainingEvents = eventRingReader_->read(metricListener) > 0;
-                    const bool noRemainingConstantsToSend = metricListener.flush(startWork);
+                    cpudataReader_->read(metricListener, startWorkInMs);
+                    hasRemainingEvents = eventRingReader_->read(metricListener, startWorkInMs) > 0;
+                    const bool noRemainingConstantsToSend = metricListener.noRemainingConstantsToSend();
                     if (needsToSendConstantMetrics) {
                         if (cpudataReader_->hasEmittedConstantMetrics() &&
                             eventRingReader_->hasEmittedConstantMetrics() &&
@@ -262,12 +272,11 @@ void Metrics::run() {
                 // Poll as much as possible to try and eliminate the lost events messages
                 while (hasRemainingEvents) {
                     clock_gettime(CLOCK_REALTIME, &startWork);
+                    const long startWorkInMs = toEpochMillis(startWork);
                     {
                         boost::lock_guard <boost::mutex> guard(readersMutex);
                         if (enabled_) {
-                            metricListener.start();
-                            hasRemainingEvents = eventRingReader_->read(metricListener) > 0;
-                            metricListener.flush(startWork);
+                            hasRemainingEvents = eventRingReader_->read(metricListener, startWorkInMs) > 0;
                         } else {
                             break;
                         }

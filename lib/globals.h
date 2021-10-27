@@ -21,6 +21,8 @@ extern "C" int linkable_handle(CallFrame* frames, ErrorHolder* errorHolder);
 // this also ensures that ASIO generates boost::chrono methods, not std::chrono ones
 #define BOOST_ASIO_DISABLE_STD_CHRONO
 
+#define NS_IN_MS 1000000
+#define MS_IN_S 1000
 void sleep_ms(uint64_t durationInMs);
 
 int getTid();

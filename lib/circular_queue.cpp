@@ -112,7 +112,7 @@ bool CircularQueue::pushMetricInformation(
     return true;
 }
 
-bool CircularQueue::pushMetricSamples(vector<MetricSample>& metricSamples, const timespec& time) {
+bool CircularQueue::pushMetricSamples(vector<MetricSample>& metricSamples, const long time_epoch_millis) {
 
     size_t currentInput;
 
@@ -125,8 +125,7 @@ bool CircularQueue::pushMetricSamples(vector<MetricSample>& metricSamples, const
     holder.elementType = METRIC_SAMPLES;
     holder.metricSamples = metricSamples;
 
-    holder.tspec.tv_sec = time.tv_sec;
-    holder.tspec.tv_nsec = time.tv_nsec;
+    holder.time_epoch_millis = time_epoch_millis;
 
     mainQueue.commitWrite(holder);
 
@@ -180,7 +179,7 @@ bool CircularQueue::pop(QueueListener& listener) {
             }
 
             case METRIC_SAMPLES: {
-                listener.recordMetricSamples(holder.tspec, holder.metricSamples);
+                listener.recordMetricSamples(holder.time_epoch_millis, holder.metricSamples);
                 break;
             }
 

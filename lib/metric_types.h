@@ -51,9 +51,7 @@ struct MetricListenerEntry {
 class MetricDataListener {
 public:
 
-    virtual void start() = 0;
-
-    virtual void recordEntries(std::vector<MetricListenerEntry>& entries) = 0;
+    virtual void recordEntries(std::vector <MetricListenerEntry> &entries, const long timestampInMs) = 0;
 
     virtual void recordNotification(const data::NotificationCategory category, const string& payload) = 0;
 

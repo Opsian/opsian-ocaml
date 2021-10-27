@@ -54,7 +54,7 @@ public:
     recordMetricInformation(const MetricInformation& metricInformation) = 0;
 
     virtual void
-    recordMetricSamples(const timespec& ts, const vector<MetricSample>& metricSamples) = 0;
+    recordMetricSamples(const long time_epoch_millis, const vector<MetricSample>& metricSamples) = 0;
 
     virtual void
     recordConstantMetricsComplete() = 0;
@@ -79,7 +79,7 @@ struct Holder {
           payload(),
           value(0),
           metricInformation(),
-          tspec(),
+          time_epoch_millis(0),
           metricSamples() {}
 
     // Common
@@ -95,7 +95,7 @@ struct Holder {
     MetricInformation metricInformation;
 
     // MetricSamples
-    timespec tspec;
+    long time_epoch_millis;
     vector<MetricSample> metricSamples;
 };
 
@@ -185,7 +185,7 @@ public:
     bool pushNotification(data::NotificationCategory category, const char* payload, const int value);
 
     bool pushMetricInformation(const MetricInformation& info);
-    bool pushMetricSamples(vector<MetricSample>& metricSamples, const timespec& time);
+    bool pushMetricSamples(vector<MetricSample>& metricSamples, const long time_epoch_millis);
 
     bool pushConstantMetricsComplete();
 

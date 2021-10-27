@@ -90,7 +90,7 @@ public:
         PROC_MEMINFO_PARSE_ERROR,
     };
 
-    void read(MetricDataListener& listener);
+    void read(MetricDataListener& listener, const long timestampInMs);
 
     void updateEntryPrefixes(vector<string>& disabledPrefixes);
 

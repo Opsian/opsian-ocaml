@@ -9,7 +9,7 @@ class EventRingReader {
 public:
     EventRingReader(vector<string>& disabledPrefixes);
 
-    uint32_t read(MetricDataListener& listener);
+    uint32_t read(MetricDataListener& listener, const long timestampInMs);
 
     void updateEntryPrefixes(vector<string>& disabledPrefixes);
 
@@ -24,7 +24,7 @@ private:
 
     bool hasEmittedConstantMetrics_;
 
-    void emitConstantMetrics(MetricDataListener &listener) const;
+    void emitConstantMetrics(MetricDataListener &listener, const long timestampInMs) const;
 };
 
 #endif //OPSIAN_OCAML_EVENT_RING_READER_H

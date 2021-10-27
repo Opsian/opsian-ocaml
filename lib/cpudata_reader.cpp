@@ -57,23 +57,19 @@ int64_t timevalToMs(timeval ts) {
 #define int64At(X) boost::lexical_cast<int64_t>(result.at(X))
 #define kbAt(X) boost::lexical_cast<int64_t>(result.at(X)) * KILO_TO_BYTES
 
-void CPUDataReader::read(MetricDataListener& listener) {
-    if (cpuNCoresEnabled && !readNCores) {
-        vector<MetricListenerEntry> entries;
+void CPUDataReader::read(MetricDataListener& listener, const long timestampInMs) {
+    vector<MetricListenerEntry> entries;
 
+    if (cpuNCoresEnabled && !readNCores) {
         // So technically this could change with for example virtual machines, etc.
         int ncores = get_nprocs();
 
         addLongEntry(entries, "cpu.ncores", MetricUnit::NONE, MetricVariability::CONSTANT, ncores);
 
-        listener.recordEntries(entries);
-
         readNCores = true;
     }
 
     if (cpuProcessEnabled) {
-        vector<MetricListenerEntry> entries;
-
         struct rusage usage;
 
         int err = getrusage(RUSAGE_SELF, &usage);
@@ -88,22 +84,18 @@ void CPUDataReader::read(MetricDataListener& listener) {
             addLongVar(entries, "cpu.process.blocks.out", MetricUnit::EVENTS, usage.ru_oublock);
             addLongVar(entries, "cpu.process.csw.voluntary", MetricUnit::EVENTS, usage.ru_nvcsw);
             addLongVar(entries, "cpu.process.csw.involuntary", MetricUnit::EVENTS, usage.ru_nivcsw);
-
-            listener.recordEntries(entries);
         } else {
             error(listener, (boost::format("Got getrusage error of %d") % err).str().c_str(), RUSAGE_FAILURE);
         }
     }
 
     if (cpuSystemEnabled) {
-
         if (!readClockTicksPerSecond) {
             clockTicksPerSecond = sysconf(_SC_CLK_TCK);
             readClockTicksPerSecond = true;
         }
 
         if (procStat.reset()) {
-            vector<MetricListenerEntry> entries;
             string line;
             vector<string> result;
 
@@ -147,8 +139,6 @@ void CPUDataReader::read(MetricDataListener& listener) {
                     continue; // This can happen in really old kernels. Older than even Redhat support.
                 }
             }
-
-            listener.recordEntries(entries);
         } else if (procStat.hasOpenError()) {
             error(listener, procStat.getError().c_str(), PROC_STAT_FILE_ERROR);
         }
@@ -156,7 +146,6 @@ void CPUDataReader::read(MetricDataListener& listener) {
 
     if (memCoreEnabled) {
         if (procMemInfo.reset()) {
-            vector<MetricListenerEntry> entries;
             string line;
             vector<string> result;
 
@@ -190,11 +179,13 @@ void CPUDataReader::read(MetricDataListener& listener) {
                     continue; // This can happen in really old kernels. Older than even Redhat support.
                 }
             }
-
-            listener.recordEntries(entries);
         } else if (procMemInfo.hasOpenError()) {
             error(listener, procMemInfo.getError().c_str(), PROC_MEMINFO_FILE_ERROR);
         }
+    }
+
+    if (!entries.empty()) {
+        listener.recordEntries(entries, timestampInMs);
     }
 
     // Always get emitted on the first run
