@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <string>
 #include <string.h>
+#include <time.h>
 #include <fstream>
 #include "linkable_profiler.h"
 
@@ -24,6 +25,8 @@ extern "C" int linkable_handle(CallFrame* frames, ErrorHolder* errorHolder);
 #define NS_IN_MS 1000000
 #define MS_IN_S 1000
 void sleep_ms(uint64_t durationInMs);
+
+long toMillis(const timespec& timestamp);
 
 int getTid();
 

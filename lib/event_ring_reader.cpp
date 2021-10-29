@@ -8,6 +8,8 @@ static const string LOST_EVENTS_NAME = string("ocaml.eventring.lost_events");
 static const string RUN_PARAM_NAME = string("ocaml.runparam");
 static const string VERSION_PARAM_NAME = string("ocaml.version");
 static const uint MAX_EVENTS = 60000;
+
+static long MONOTONIC_TO_REALTIME_ADJUSTMENT_IN_MS = 0;
 static std::atomic_bool calledStart_(false);
 
 extern "C" {
@@ -164,7 +166,8 @@ public:
 //            printf("lostEvents_=%d\n", lostEvents_);
             }
 
-            listener_.recordEntries(entries_, lastTimestampInMs_);
+            const long realtimeTimestampInMs = MONOTONIC_TO_REALTIME_ADJUSTMENT_IN_MS + (long)lastTimestampInMs_;
+            listener_.recordEntries(entries_, realtimeTimestampInMs);
             entries_.clear();
         }
     }
@@ -311,6 +314,13 @@ void EventRingReader::updateEntryPrefixes(vector<string>& disabledPrefixes) {
             callbacks_.ev_runtime_end = eventRingEnd;
             callbacks_.ev_runtime_counter = eventRingCounter;
             callbacks_.ev_lost_events = eventRingLostEvents;
+
+            timespec ts {0};
+            clock_gettime(CLOCK_REALTIME, &ts);
+            const long clockRealTimeInMs = toMillis(ts);
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            const long clockMonotonicInMs = toMillis(ts);
+            MONOTONIC_TO_REALTIME_ADJUSTMENT_IN_MS = clockRealTimeInMs - clockMonotonicInMs;
 
             calledStart_ = true;
         } else {

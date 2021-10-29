@@ -32,7 +32,7 @@ bool isPrefixDisabled(const string& entryName, vector<string>& disabledPrefixes)
     return false;
 }
 
-long toEpochMillis(const timespec& timestamp) {
+long toMillis(const timespec& timestamp) {
     return (timestamp.tv_sec * 1000) + (timestamp.tv_nsec / 1000000);
 }
 
@@ -182,7 +182,7 @@ public:
         };
         std::vector<MetricSample> samples{};
         samples.push_back(durationSample);
-        queue_.pushMetricSamples(samples, toEpochMillis(timestamp));
+        queue_.pushMetricSamples(samples, toMillis(timestamp));
     }
 
 private:
@@ -235,7 +235,7 @@ void Metrics::run() {
         while (true) {
             // First do all the necessary work on the duty cycle
             clock_gettime(CLOCK_REALTIME, &startWork);
-            const long startWorkInMs = toEpochMillis(startWork);
+            const long startWorkInMs = toMillis(startWork);
             sendDurationMetricId();
             scan_threads();
             bool hasRemainingEvents = false;
@@ -272,7 +272,7 @@ void Metrics::run() {
                 // Poll as much as possible to try and eliminate the lost events messages
                 while (hasRemainingEvents) {
                     clock_gettime(CLOCK_REALTIME, &startWork);
-                    const long startWorkInMs = toEpochMillis(startWork);
+                    const long startWorkInMs = toMillis(startWork);
                     {
                         boost::lock_guard <boost::mutex> guard(readersMutex);
                         if (enabled_) {
