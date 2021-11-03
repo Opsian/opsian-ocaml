@@ -50,14 +50,10 @@ static const std::unordered_set<ev_runtime_counter> REQUIRED_COUNTERS {
     EV_C_FORCE_MINOR_WEAK,
     EV_C_FORCE_MINOR_MEMPROF,
     // amount promoted from the minor heap to the major heap on each minor collection in terms of machine words
-    EV_C_MINOR_PROMOTED
+    EV_C_MINOR_PROMOTED,
 
-    #if OCAML_VERSION >= 50000
-        // Multicore only counters:
-        ,
-        // amount of allocation in the previous minor cycle in terms of machine words
-        EV_C_MINOR_ALLOCATED
-    #endif
+    // amount of allocation in the previous minor cycle in terms of machine words
+    EV_C_MINOR_ALLOCATED
 };
 
 static const char* const EV_PHASE_NAMES[] = {
