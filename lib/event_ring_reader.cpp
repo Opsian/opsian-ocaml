@@ -37,82 +37,33 @@ extern "C" {
 #include <unordered_map>
 #include <unordered_set>
 
-static const std::unordered_set<ev_runtime_phase> REQUIRED_PHASES {
-    EV_MINOR, // Pause time for minor collection
-    EV_MAJOR // Sum of pause time slices for major collections
+#define ADD_EVENT(EV) { EV, "ocaml.eventring."#EV }
+
+static const std::unordered_map<ev_runtime_phase, const char*> REQUIRED_PHASES {
+    ADD_EVENT(EV_MINOR), // Pause time for minor collection
+    ADD_EVENT(EV_MAJOR), // Sum of pause time slices for major collections
 };
 
-static const std::unordered_set<ev_runtime_counter> REQUIRED_COUNTERS {
+static const std::unordered_map<ev_runtime_counter, const char*> REQUIRED_COUNTERS {
     // Causes of minor collections starting:
-    EV_C_FORCE_MINOR_ALLOC_SMALL,
-    EV_C_FORCE_MINOR_MAKE_VECT,
-    EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE,
-    EV_C_FORCE_MINOR_WEAK,
-    EV_C_FORCE_MINOR_MEMPROF,
+    ADD_EVENT(EV_C_FORCE_MINOR_ALLOC_SMALL),
+    ADD_EVENT(EV_C_FORCE_MINOR_MAKE_VECT),
+    ADD_EVENT(EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE),
+    ADD_EVENT(EV_C_FORCE_MINOR_WEAK),
+    ADD_EVENT(EV_C_FORCE_MINOR_MEMPROF),
     // amount promoted from the minor heap to the major heap on each minor collection in terms of machine words
-    EV_C_MINOR_PROMOTED,
+    ADD_EVENT(EV_C_MINOR_PROMOTED),
 
     // amount of allocation in the previous minor cycle in terms of machine words
-    EV_C_MINOR_ALLOCATED
+    ADD_EVENT(EV_C_MINOR_ALLOCATED),
+    ADD_EVENT(EV_STAT_MAJOR_WORDS),
+    ADD_EVENT(EV_STAT_MAJOR_COLLECTIONS),
+    ADD_EVENT(EV_STAT_MINOR_COLLECTIONS),
+    ADD_EVENT(EV_STAT_MINOR_WORDS),
+    ADD_EVENT(EV_STAT_MINOR_PROMOTED_WORDS),
+    ADD_EVENT(EV_STAT_HEAP_WORDS),
+    ADD_EVENT(EV_STAT_MINOR_SIZE)
 };
-
-static const char* const EV_PHASE_NAMES[] = {
-    "ocaml.eventring.EV_COMPACT_MAIN",
-    "ocaml.eventring.EV_COMPACT_RECOMPACT",
-    "ocaml.eventring.EV_EXPLICIT_GC_SET",
-    "ocaml.eventring.EV_EXPLICIT_GC_STAT",
-    "ocaml.eventring.EV_EXPLICIT_GC_MINOR",
-    "ocaml.eventring.EV_EXPLICIT_GC_MAJOR",
-    "ocaml.eventring.EV_EXPLICIT_GC_FULL_MAJOR",
-    "ocaml.eventring.EV_EXPLICIT_GC_COMPACT",
-    "ocaml.eventring.EV_MAJOR",
-    "ocaml.eventring.EV_MAJOR_ROOTS",
-    "ocaml.eventring.EV_MAJOR_SWEEP",
-    "ocaml.eventring.EV_MAJOR_MARK_ROOTS",
-    "ocaml.eventring.EV_MAJOR_MARK_MAIN",
-    "ocaml.eventring.EV_MAJOR_MARK_FINAL",
-    "ocaml.eventring.EV_MAJOR_MARK",
-    "ocaml.eventring.EV_MAJOR_MARK_GLOBAL_ROOTS_SLICE",
-    "ocaml.eventring.EV_MAJOR_ROOTS_GLOBAL",
-    "ocaml.eventring.EV_MAJOR_ROOTS_DYNAMIC_GLOBAL",
-    "ocaml.eventring.EV_MAJOR_ROOTS_LOCAL",
-    "ocaml.eventring.EV_MAJOR_ROOTS_C",
-    "ocaml.eventring.EV_MAJOR_ROOTS_FINALISED",
-    "ocaml.eventring.EV_MAJOR_ROOTS_MEMPROF",
-    "ocaml.eventring.EV_MAJOR_ROOTS_HOOK",
-    "ocaml.eventring.EV_MAJOR_CHECK_AND_COMPACT",
-    "ocaml.eventring.EV_MINOR",
-    "ocaml.eventring.EV_MINOR_LOCAL_ROOTS",
-    "ocaml.eventring.EV_MINOR_REF_TABLES",
-    "ocaml.eventring.EV_MINOR_COPY",
-    "ocaml.eventring.EV_MINOR_UPDATE_WEAK",
-    "ocaml.eventring.EV_MINOR_FINALIZED",
-    "ocaml.eventring.EV_EXPLICIT_GC_MAJOR_SLICE"
-};
-static const size_t EV_PHASE_NAMES_SIZE = sizeof(EV_PHASE_NAMES) / sizeof(char*);
-
-static const char* const EV_COUNTER_NAMES[] = {
-    "ocaml.eventring.EV_C_ALLOC_JUMP",
-    "ocaml.eventring.EV_C_FORCE_MINOR_ALLOC_SMALL",
-    "ocaml.eventring.EV_C_FORCE_MINOR_MAKE_VECT",
-    "ocaml.eventring.EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE",
-    "ocaml.eventring.EV_C_FORCE_MINOR_WEAK",
-    "ocaml.eventring.EV_C_FORCE_MINOR_MEMPROF",
-    "ocaml.eventring.EV_C_MAJOR_MARK_SLICE_REMAIN",
-    "ocaml.eventring.EV_C_MAJOR_MARK_SLICE_FIELDS",
-    "ocaml.eventring.EV_C_MAJOR_WORK_EXTRA",
-    "ocaml.eventring.EV_C_MAJOR_WORK_MARK",
-    "ocaml.eventring.EV_C_MAJOR_MARK_SLICE_POINTERS",
-    "ocaml.eventring.EV_C_MAJOR_WORK_SWEEP",
-    "ocaml.eventring.EV_C_MINOR_PROMOTED",
-    "ocaml.eventring.EV_C_REQUEST_MAJOR_ALLOC_SHR",
-    "ocaml.eventring.EV_C_REQUEST_MAJOR_ADJUST_GC_SPEED",
-    "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_REF_TABLE",
-    "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_EPHE_REF_TABLE",
-    "ocaml.eventring.EV_C_REQUEST_MINOR_REALLOC_CUSTOM_TABLE",
-    "ocaml.eventring.EV_C_MINOR_ALLOCATED"
-};
-static const size_t EV_COUNTER_NAMES_SIZE = sizeof(EV_COUNTER_NAMES) / sizeof(char*);
 
 struct EventState {
     uint64_t beginTimestamp;
@@ -187,22 +138,18 @@ static std::unordered_map<ev_runtime_phase, EventState> phaseToEventState_{};
 
 void eventRingBegin(int domainId, void* data, uint64_t timestamp, ev_runtime_phase phase) {
     // printf("eventRingBegin %lu %d\n", timestamp, phase);
-    if (REQUIRED_PHASES.find(phase) == REQUIRED_PHASES.end()) {
+    const auto& phaseIt = REQUIRED_PHASES.find(phase);
+    if (phaseIt == REQUIRED_PHASES.end()) {
         return;
     }
 
-    PollState* pollState = (PollState*) data;
     const auto& it = phaseToEventState_.find(phase);
     if (it == phaseToEventState_.end()) {
-        if (phase <= EV_PHASE_NAMES_SIZE) {
-            EventState eventState{};
-            eventState.beginTimestamp = timestamp;
-            eventState.eventName = EV_PHASE_NAMES[phase];
-            phaseToEventState_.insert({phase, eventState});
-        } else {
-            const string msg = "Unknown GC phase: " + std::to_string(phase);
-            pollState->emitWarning(msg);
-        }
+        EventState eventState{};
+        eventState.beginTimestamp = timestamp;
+        eventState.eventName = phaseIt->second;
+
+        phaseToEventState_.insert({phase, eventState});
     } else {
         it->second.beginTimestamp = timestamp;
     }
@@ -231,8 +178,6 @@ void eventRingEnd(int domainId, void* data, uint64_t timestamp, ev_runtime_phase
     entry.data.type = MetricDataType::LONG;
     entry.data.valueLong = duration;
 
-    // printf("%s=%lu\n", EV_PHASE_NAMES[phase], duration);
-
     pollState->addEntry(entry, timestamp);
 
     phaseToEventState_.erase(it);
@@ -240,39 +185,30 @@ void eventRingEnd(int domainId, void* data, uint64_t timestamp, ev_runtime_phase
 
 void eventRingCounter(int domainId, void* data, uint64_t timestamp, ev_runtime_counter counter, uint64_t value) {
     // printf("eventRingCounter %lu %d %lu %s\n", timestamp, counter, value, EV_COUNTER_NAMES[counter]);
-    if (REQUIRED_COUNTERS.find(counter) == REQUIRED_COUNTERS.end()) {
+    const auto& phaseIt = REQUIRED_COUNTERS.find(counter);
+    if (phaseIt == REQUIRED_COUNTERS.end()) {
         return;
     }
 
-    // printf("%s: %lu %lu\n", EV_COUNTER_NAMES[counter], timestamp, value);
+    // printf("%s: %lu %lu\n", phaseIt->second, timestamp, value);
 
     MetricUnit unit = MetricUnit::EVENTS;
 
-    if (counter == EV_C_MINOR_PROMOTED
-    #if OCAML_VERSION >= 50000
-        || counter == EV_C_MINOR_ALLOCATED
-    #endif
-    ) {
+    if (counter == EV_C_MINOR_PROMOTED || counter == EV_C_MINOR_ALLOCATED) {
         value *= WORD_SIZE;
         unit = MetricUnit::BYTES;
     }
 
+    struct MetricListenerEntry entry{};
+    entry.name = phaseIt->second;
+    entry.unit = unit;
+    entry.variability = MetricVariability::VARIABLE;
+    entry.data.type = MetricDataType::LONG;
+    // uint64 to int64 conversion
+    entry.data.valueLong = value;
+
     PollState* pollState = (PollState*) data;
-    if (counter <= EV_COUNTER_NAMES_SIZE) {
-        struct MetricListenerEntry entry{};
-
-        entry.name = EV_COUNTER_NAMES[counter];
-        entry.unit = unit;
-        entry.variability = MetricVariability::VARIABLE;
-        entry.data.type = MetricDataType::LONG;
-        // uint64 to int64 conversion
-        entry.data.valueLong = value;
-
-        pollState->addEntry(entry, timestamp);
-    } else {
-        const string msg = "Unknown GC counter: " + std::to_string(counter);
-        pollState->emitWarning(msg);
-    }
+    pollState->addEntry(entry, timestamp);
 }
 
 void eventRingLostEvents(int domainId, void* data, int lost_events) {
