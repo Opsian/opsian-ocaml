@@ -12,6 +12,6 @@ In order to use the event-ring metrics you need to use the eventring patchset
 
 ```
 opam switch create eventring --empty
-opam pin add ocaml-variants.4.12.0+eventring git+https://www.github.com/sadiqj/ocaml#eventring
+opam pin add ocaml-variants.4.12.1+eventring git+https://www.github.com/sadiqj/ocaml#eventring
 ```
 
