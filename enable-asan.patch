@@ -1,0 +1,18 @@
+diff --git a/lib/dune b/lib/dune
+index 80590f7..b5a3bb5 100644
+--- a/lib/dune
++++ b/lib/dune
+@@ -222,6 +222,7 @@
+     -Wwrite-strings
+     -funsigned-char
+     -std=c++0x
++    -fsanitize=address -fsanitize=pointer-compare -D_GLIBCXX_SANITIZE_VECTOR -fsanitize-address-use-after-scope
+     -g))
+  (foreign_archives protobuf boost_chrono boost_date_time boost_system boost_thread ssl crypto backtrace unwind)
+  (c_library_flags (
+@@ -229,4 +230,5 @@
+     -ldl
+     -lrt
+     -lstdc++
++    -fsanitize=address -fsanitize=pointer-compare -D_GLIBCXX_SANITIZE_VECTOR -fsanitize-address-use-after-scope
+     -llzma)))
