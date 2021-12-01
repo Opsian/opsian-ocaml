@@ -159,7 +159,7 @@ char* copy(char* source, const size_t size) {
 
 CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str) {
-    signal(SIGSEGV, crashHandler);
+    // signal(SIGSEGV, crashHandler);
 
     const char* ocaml_version = String_val(ocaml_version_str);
 

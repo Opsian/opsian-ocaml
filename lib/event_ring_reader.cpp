@@ -9,7 +9,6 @@ static const string RUN_PARAM_NAME = string("ocaml.runparam");
 static const string VERSION_PARAM_NAME = string("ocaml.version");
 static const uint MAX_EVENTS = 60000;
 
-static long MONOTONIC_TO_REALTIME_ADJUSTMENT_IN_MS = 0;
 static std::atomic_bool calledStart_(false);
 
 extern "C" {
@@ -26,6 +25,7 @@ extern "C" {
 
 #ifdef CAML_HAS_EVENTRING
 
+static long MONOTONIC_TO_REALTIME_ADJUSTMENT_IN_MS = 0;
 static const int MONITOR_THIS_PROCESS = -1;
 static const int WORD_SIZE = sizeof(unsigned);
 

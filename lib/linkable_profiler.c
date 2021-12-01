@@ -16,6 +16,7 @@
 #include "caml/misc.h"
 #include "caml/mlvalues.h"
 #include "caml/stack.h"
+#include "caml/version.h"
 #include <inttypes.h>
 
 #define UNW_LOCAL_ONLY
@@ -23,6 +24,17 @@
 
 // Code is split out into a separate C file rather than C++ in order to work around Dune / Ocaml linking issue
 // between Ocaml internals and C++.
+
+// multicore sets OCAML_VERSION_ADDITIONAL "domains" - here we're just checking if the flag is set, which is a hack
+// but only a temporary one until multicore is merged into Ocaml 5.0 when we can do a comparison on the version number
+#ifdef OCAML_VERSION_ADDITIONAL
+    #define MULTICORE 1
+#endif
+
+#ifdef MULTICORE
+#include "caml/fiber.h"
+#include "caml/domain_state.h"
+#endif
 
 int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
     int num_frames = 0;
@@ -77,11 +89,21 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
             uint64_t pc;
             char* sp;
 
+            #ifdef MULTICORE
+            caml_domain_state* domain_state = Caml_state;
+            caml_frame_descrs fds = caml_get_frame_descrs();
+            #endif
+
             pc = (uint64_t) uw_ip;
             sp = (char*) uw_sp;
 
             while (num_frames < MAX_FRAMES) {
-                frame_descr* fd = caml_next_frame_descriptor(&pc, &sp);
+                frame_descr* fd;
+                #ifdef MULTICORE
+                fd = caml_next_frame_descriptor(fds, &pc, &sp, domain_state->current_stack);
+                #else
+                fd = caml_next_frame_descriptor(&pc, &sp);
+                #endif
 
                 if (fd == NULL) {
                     // printf("fd null\n");
