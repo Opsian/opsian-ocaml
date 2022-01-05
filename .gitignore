@@ -32,6 +32,7 @@ setup.log
 # Local OPAM switch
 _opam/
 
+*.code-workspace
 .idea
 *.swp
 
