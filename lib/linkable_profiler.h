@@ -21,6 +21,7 @@ typedef struct {
 typedef uint64_t VMSymbol;
 
 const int MAX_FRAMES = 256;
+const int LWT_MAX_FRAMES = 10;
 
 typedef enum ErrorType_t {
     SUCCESS = 0,

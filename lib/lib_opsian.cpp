@@ -159,7 +159,7 @@ char* copy(char* source, const size_t size) {
 
 CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str) {
-    // signal(SIGSEGV, crashHandler);
+//    signal(SIGSEGV, crashHandler);
 
     const char* ocaml_version = String_val(ocaml_version_str);
 
@@ -214,4 +214,142 @@ void sleep_ms(uint64_t durationInMs) {
     if (res != 0) {
         logError("Error (%d) invoking nanosleep for %lu", res, durationInMs);
     }
+}
+
+// LWT PROTOYPE CODE:
+extern "C" {
+    #include "linkable_profiler.h"
+}
+
+#include "deps/libbacktrace/backtrace.h"
+
+struct backtrace_state* lwt_bt_state = NULL;
+
+void lwtHandleBtError(void* data, const char* errorMessage, int errorNumber) {
+    printf("lib_bt error: errorNumber=%d, %s\n", errorNumber, errorMessage);
+}
+
+struct PromiseSample {
+    int64_t start_time_in_ns;
+    uintptr_t lwt_function;
+    vector<string> symbol_names;
+};
+
+const char* PREFIX = "camlLwt_";
+const size_t PREFIX_LEN = strlen(PREFIX);
+unordered_set<uint64_t> lwt_pcs {};
+unordered_map<uint64_t, string> pcs_to_symbol {};
+unordered_map<int, PromiseSample> promise_id_to_sample{};
+const uintptr_t NO_LWT_FUNCTION = 0;
+uintptr_t last_lwt_function = NO_LWT_FUNCTION;
+vector<string> current_symbols{};
+
+void lwtHandleSyminfo (
+    void *data,
+    uintptr_t pc,
+    const char *symname,
+    uintptr_t symval,
+    uintptr_t symsize) {
+
+    if (symname == NULL) {
+        printf("Missing symbol name for %lu\n", pc);
+        return;
+    }
+
+    // printf("Found: %s\n", symname);
+
+    // make a copy, ignoring the "caml" prefix
+    string current_symbol = string(symname, 4, string::npos);
+    pcs_to_symbol.insert({pc, current_symbol});
+
+    // It's part of LWT
+    if (strncmp(symname, PREFIX, PREFIX_LEN) == 0) {
+        lwt_pcs.insert(pc);
+        last_lwt_function = pc;
+    } else {
+        current_symbols.emplace_back(current_symbol);
+    }
+}
+
+int64_t toNanos(const timespec& timestamp) {
+    return (timestamp.tv_sec * NS_IN_S) + timestamp.tv_nsec;
+}
+
+void lwt_check_frame(const uint64_t pc) {
+    // Skip over lwt frames
+    if (lwt_pcs.count(pc) > 0) {
+        last_lwt_function = pc;
+        return;
+    }
+
+    auto it = pcs_to_symbol.find(pc);
+    if (it != pcs_to_symbol.end()) {
+        current_symbols.emplace_back(it->second);
+        return;
+    }
+
+    backtrace_syminfo(lwt_bt_state, pc, lwtHandleSyminfo, lwtHandleBtError, NULL);
+}
+
+extern "C" CAMLprim value lwt_sample() {
+    return Bool_val(true);
+}
+
+extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
+    if (lwt_bt_state == NULL) {
+        lwt_bt_state = backtrace_create_state(NULL, 0, lwtHandleBtError, NULL);
+    }
+
+    CallFrame frames[LWT_MAX_FRAMES];
+    int count = lwt_handle(frames);
+    int promise_id = Int_val(ocaml_id);
+
+    last_lwt_function = NO_LWT_FUNCTION;
+    current_symbols.clear();
+    for (int i = 0; i < count; i++) {
+        if (!frames[i].isForeign) {
+            lwt_check_frame(frames[i].frame);
+        }
+    }
+
+    PromiseSample sample {};
+
+    timespec ts {0};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+
+    sample.start_time_in_ns = toNanos(ts);
+    sample.symbol_names = current_symbols;
+    sample.lwt_function = last_lwt_function;
+
+    promise_id_to_sample.insert({promise_id, sample});
+}
+
+extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
+    timespec ts {0};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    int64_t end_time_in_ns = toNanos(ts);
+
+    int promise_id = Int_val(ocaml_id);
+
+    auto it = promise_id_to_sample.find(promise_id);
+    if (it != promise_id_to_sample.end()) {
+        PromiseSample& sample = it->second;
+        int64_t duration_in_ns = end_time_in_ns - sample.start_time_in_ns;
+        printf("\n\nPromise took %ldns\n", duration_in_ns);
+        auto sym_it = pcs_to_symbol.find(sample.lwt_function);
+        if (sym_it != pcs_to_symbol.end()) {
+            printf("Created via: %s\n", sym_it->second.c_str());
+        }
+
+        for (string& symbol_name : sample.symbol_names) {
+            printf("%s\n", symbol_name.c_str());
+        }
+
+        printf("\n\n");
+    }
+}
+
+extern "C" CAMLprim void lwt_on_cancel(value ocaml_id) {
+    // do the same thing for cancel and resolve for now
+    lwt_on_resolve(ocaml_id);
 }

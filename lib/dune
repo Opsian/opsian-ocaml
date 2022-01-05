@@ -131,7 +131,7 @@
    libunwind-common.h
     (source_tree deps/libunwind/include))
   (names linkable_profiler)
-  (flags -Ideps/libunwind/include/ -I. -g))
+  (flags -Ideps/libunwind/include/ -I. -g -fPIC))
  (foreign_stubs
   (language cxx)
   ; force rules to be built

@@ -13,6 +13,9 @@
 
 extern "C" int linkable_handle(CallFrame* frames, ErrorHolder* errorHolder);
 
+// NB: some methods get skipped over during the stack walk and we're down in the depths so pick 8 for certainty.
+extern "C" int lwt_handle(CallFrame* frames);
+
 #ifdef __MACH__
 #   include <mach/clock.h>
 #   include <mach/mach.h>
@@ -24,6 +27,7 @@ extern "C" int linkable_handle(CallFrame* frames, ErrorHolder* errorHolder);
 
 #define NS_IN_MS 1000000
 #define MS_IN_S 1000
+#define NS_IN_S 1000000000
 void sleep_ms(uint64_t durationInMs);
 
 long toMillis(const timespec& timestamp);

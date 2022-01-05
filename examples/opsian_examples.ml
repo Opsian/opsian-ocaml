@@ -1,4 +1,6 @@
 
+open Lwt_examples
+
 let d n =
   n + 7
   [@@inline never]
@@ -180,4 +182,5 @@ let () =
   | "native_callback"::[] -> native_callback ()
   | "gc"::"unforced"::count::[] -> gc false (int_of_string count)
   | "gc"::count::[] -> gc true (int_of_string count)
+  | "lwt"::[] -> run_lwt ()
   | _ -> Printf.printf "Unknown \n";

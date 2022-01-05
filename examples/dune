@@ -1,6 +1,6 @@
 (executable
  (name opsian_examples)
- (libraries threads opsian unix)
+ (libraries threads opsian unix lwt lwt.unix)
  (modes exe)
 ; Can enable dumping of linear IR to validate whether allocation or inlining are occurring.
 ;  (ocamlopt_flags (:standard -dlinear))
