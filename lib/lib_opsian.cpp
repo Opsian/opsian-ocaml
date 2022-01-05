@@ -229,20 +229,33 @@ void lwtHandleBtError(void* data, const char* errorMessage, int errorNumber) {
     printf("lib_bt error: errorNumber=%d, %s\n", errorNumber, errorMessage);
 }
 
+struct LwtLocation {
+    int lineNumber;
+    string fileName;
+    string functionName;
+};
+
 struct PromiseSample {
     int64_t start_time_in_ns;
     uintptr_t lwt_function;
-    vector<string> symbol_names;
+    vector<LwtLocation> locations;
 };
 
 const char* PREFIX = "camlLwt_";
 const size_t PREFIX_LEN = strlen(PREFIX);
 unordered_set<uint64_t> lwt_pcs {};
-unordered_map<uint64_t, string> pcs_to_symbol {};
+unordered_map<uint64_t, LwtLocation> pcs_to_location {};
 unordered_map<int, PromiseSample> promise_id_to_sample{};
 const uintptr_t NO_LWT_FUNCTION = 0;
 uintptr_t last_lwt_function = NO_LWT_FUNCTION;
-vector<string> current_symbols{};
+vector<LwtLocation> current_locations{};
+
+void remove(string& value, const string& search) {
+    size_t pos = value.find(search);
+    if (pos != string::npos) {
+        value.erase(pos, search.length());
+    }
+}
 
 void lwtHandleSyminfo (
     void *data,
@@ -258,17 +271,39 @@ void lwtHandleSyminfo (
 
     // printf("Found: %s\n", symname);
 
+    LwtLocation location{};
+    location.lineNumber = 0;
+    location.fileName = "";
     // make a copy, ignoring the "caml" prefix
-    string current_symbol = string(symname, 4, string::npos);
-    pcs_to_symbol.insert({pc, current_symbol});
+    location.functionName = string(symname, 4, string::npos);
+    remove(location.functionName, "Dune__exe__");
+    pcs_to_location.insert({pc, location});
 
     // It's part of LWT
     if (strncmp(symname, PREFIX, PREFIX_LEN) == 0) {
         lwt_pcs.insert(pc);
         last_lwt_function = pc;
     } else {
-        current_symbols.emplace_back(current_symbol);
+        current_locations.emplace_back(location);
     }
+}
+
+int lwtHandlePcInfo (
+    void *data,
+    uintptr_t pc,
+    const char *filename,
+    int lineno,
+    const char *function) {
+
+    if (!current_locations.empty()) {
+        LwtLocation& location = current_locations.back();
+        location.lineNumber = lineno;
+        if (filename != NULL) {
+            location.fileName = filename;
+        }
+    }
+
+    return 0;
 }
 
 int64_t toNanos(const timespec& timestamp) {
@@ -282,13 +317,16 @@ void lwt_check_frame(const uint64_t pc) {
         return;
     }
 
-    auto it = pcs_to_symbol.find(pc);
-    if (it != pcs_to_symbol.end()) {
-        current_symbols.emplace_back(it->second);
+    auto it = pcs_to_location.find(pc);
+    if (it != pcs_to_location.end()) {
+        current_locations.emplace_back(it->second);
         return;
     }
 
+    // Get the Ocaml function name
     backtrace_syminfo(lwt_bt_state, pc, lwtHandleSyminfo, lwtHandleBtError, NULL);
+    // Get the Ocaml file name / line number
+    backtrace_pcinfo(lwt_bt_state, pc, lwtHandlePcInfo, lwtHandleBtError, NULL);
 }
 
 extern "C" CAMLprim value lwt_sample() {
@@ -305,7 +343,7 @@ extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
     int promise_id = Int_val(ocaml_id);
 
     last_lwt_function = NO_LWT_FUNCTION;
-    current_symbols.clear();
+    current_locations.clear();
     for (int i = 0; i < count; i++) {
         if (!frames[i].isForeign) {
             lwt_check_frame(frames[i].frame);
@@ -318,10 +356,18 @@ extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
     clock_gettime(CLOCK_MONOTONIC, &ts);
 
     sample.start_time_in_ns = toNanos(ts);
-    sample.symbol_names = current_symbols;
+    sample.locations = current_locations;
     sample.lwt_function = last_lwt_function;
 
     promise_id_to_sample.insert({promise_id, sample});
+}
+
+void print_location(const char* prefix, LwtLocation& location) {
+    printf("%s%s @ %s:%d\n",
+           prefix,
+           location.functionName.c_str(),
+           location.fileName.c_str(),
+           location.lineNumber);
 }
 
 extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
@@ -336,13 +382,13 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
         PromiseSample& sample = it->second;
         int64_t duration_in_ns = end_time_in_ns - sample.start_time_in_ns;
         printf("\n\nPromise took %ldns\n", duration_in_ns);
-        auto sym_it = pcs_to_symbol.find(sample.lwt_function);
-        if (sym_it != pcs_to_symbol.end()) {
-            printf("Created via: %s\n", sym_it->second.c_str());
+        auto sym_it = pcs_to_location.find(sample.lwt_function);
+        if (sym_it != pcs_to_location.end()) {
+            print_location("Created via: ", sym_it->second);
         }
 
-        for (string& symbol_name : sample.symbol_names) {
-            printf("%s\n", symbol_name.c_str());
+        for (LwtLocation& location : sample.locations) {
+            print_location("", location);
         }
 
         printf("\n\n");
