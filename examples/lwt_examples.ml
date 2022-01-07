@@ -9,11 +9,15 @@ let opsian_tracer : Lwt_sampling.tracer = {
 }
 
 let sleep_eg () =
-  Lwt_unix.sleep 0.00001 >>= fun () -> Lwt_unix.sleep 5.0
+  Lwt_unix.sleep 0.00001 >>= fun () ->
+    Lwt_unix.sleep 1.0
 
 let run_lwt () =
   (* Lwt seems to create some thunks before this even starts *)
   Lwt_sampling.current_tracer := opsian_tracer;
   print_endline "run_lwt";
-  Lwt_main.run (sleep_eg ());
+  for i = 0 to 3 do
+    ignore (i);
+    Lwt_main.run (sleep_eg ())
+  done;
   print_endline "done run_lwt";

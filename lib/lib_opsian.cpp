@@ -221,6 +221,7 @@ extern "C" {
     #include "linkable_profiler.h"
 }
 
+#include <algorithm>
 #include "deps/libbacktrace/backtrace.h"
 
 struct backtrace_state* lwt_bt_state = NULL;
@@ -230,25 +231,41 @@ void lwtHandleBtError(void* data, const char* errorMessage, int errorNumber) {
 }
 
 struct LwtLocation {
+    uint64_t functionId;
     int lineNumber;
     string fileName;
     string functionName;
+    bool lwt;
 };
 
 struct PromiseSample {
     int64_t start_time_in_ns;
+    uint64_t site_id;
+};
+
+struct SiteInformation {
+    uint64_t site_id;
     uintptr_t lwt_function;
     vector<LwtLocation> locations;
+    int32_t sample_count;
+    int64_t total_duration_in_ns;
 };
 
 const char* PREFIX = "camlLwt_";
 const size_t PREFIX_LEN = strlen(PREFIX);
+
+const int NO_FUNCTION = -1;
+
 unordered_set<uint64_t> lwt_pcs {};
 unordered_map<uint64_t, LwtLocation> pcs_to_location {};
 unordered_map<int, PromiseSample> promise_id_to_sample{};
 const uintptr_t NO_LWT_FUNCTION = 0;
 uintptr_t last_lwt_function = NO_LWT_FUNCTION;
 vector<LwtLocation> current_locations{};
+
+uint64_t next_site_id = 0;
+unordered_map<uint64_t, SiteInformation> site_id_to_information {};
+unordered_map<uintptr_t, vector<SiteInformation>> lwt_function_to_site_information {};
 
 void remove(string& value, const string& search) {
     size_t pos = value.find(search);
@@ -258,36 +275,31 @@ void remove(string& value, const string& search) {
 }
 
 void lwtHandleSyminfo (
-    void *data,
+    void* data,
     uintptr_t pc,
     const char *symname,
     uintptr_t symval,
     uintptr_t symsize) {
 
+    LwtLocation* location = (LwtLocation*)data;
+
     if (symname == NULL) {
         printf("Missing symbol name for %lu\n", pc);
+        location->functionId = pc;
+        location->lineNumber = NO_FUNCTION;
         return;
     }
 
-    // printf("Found: %s\n", symname);
-
-    LwtLocation location{};
-    location.lineNumber = 0;
-    location.fileName = "";
+    location->functionId = pc;
+    location->lineNumber = 0;
+    location->fileName = "";
     // make a copy, ignoring the "caml" prefix
-    location.functionName = string(symname, 4, string::npos);
-    remove(location.functionName, "Dune__exe__");
-    pcs_to_location.insert({pc, location});
-
-    // It's part of LWT
-    if (strncmp(symname, PREFIX, PREFIX_LEN) == 0) {
-        lwt_pcs.insert(pc);
-        last_lwt_function = pc;
-    } else {
-        current_locations.emplace_back(location);
-    }
+    location->functionName = string(symname, 4, string::npos);
+    remove(location->functionName, "Dune__exe__");
+    location->lwt = strncmp(symname, PREFIX, PREFIX_LEN) == 0;
 }
 
+// Lookup line number and location
 int lwtHandlePcInfo (
     void *data,
     uintptr_t pc,
@@ -295,12 +307,10 @@ int lwtHandlePcInfo (
     int lineno,
     const char *function) {
 
-    if (!current_locations.empty()) {
-        LwtLocation& location = current_locations.back();
-        location.lineNumber = lineno;
-        if (filename != NULL) {
-            location.fileName = filename;
-        }
+    LwtLocation* location = (LwtLocation*)data;
+    location->lineNumber = lineno;
+    if (filename != NULL) {
+        location->fileName = filename;
     }
 
     return 0;
@@ -324,13 +334,68 @@ void lwt_check_frame(const uint64_t pc) {
     }
 
     // Get the Ocaml function name
-    backtrace_syminfo(lwt_bt_state, pc, lwtHandleSyminfo, lwtHandleBtError, NULL);
-    // Get the Ocaml file name / line number
-    backtrace_pcinfo(lwt_bt_state, pc, lwtHandlePcInfo, lwtHandleBtError, NULL);
+
+    LwtLocation location{};
+    backtrace_syminfo(lwt_bt_state, pc, lwtHandleSyminfo, lwtHandleBtError, &location);
+    if (location.lineNumber != NO_FUNCTION) {
+        // Get the Ocaml file name / line number
+        backtrace_pcinfo(lwt_bt_state, pc, lwtHandlePcInfo, lwtHandleBtError, &location);
+
+        pcs_to_location.insert({pc, location});
+
+        // It's part of LWT
+        if (location.lwt) {
+            lwt_pcs.insert(pc);
+            last_lwt_function = pc;
+        } else {
+            current_locations.emplace_back(location);
+        }
+    }
 }
 
 extern "C" CAMLprim value lwt_sample() {
     return Bool_val(true);
+}
+
+bool matches(vector<LwtLocation>& left, vector<LwtLocation>& right) {
+    if (left.size() != right.size()) {
+        return false;
+    }
+
+    auto right_it = right.begin();
+    for (auto left_it = left.begin(); left_it != left.end(); ++left_it) {
+        if (left_it->functionId != right_it->functionId || left_it->lineNumber != right_it->lineNumber) {
+            return false;
+        }
+
+        ++right_it;
+    }
+
+    return true;
+}
+
+uint64_t get_site() {
+    // TODO: improve efficiency of this
+    vector<SiteInformation>& site_informations = lwt_function_to_site_information[last_lwt_function];
+    for (SiteInformation& site : site_informations) {
+        if (matches(current_locations, site.locations)) {
+            return site.site_id;
+        }
+    }
+
+    uint64_t site_id = next_site_id++;
+
+    SiteInformation siteInformation{};
+    siteInformation.site_id = site_id;
+    siteInformation.lwt_function = last_lwt_function;
+    siteInformation.locations = current_locations;
+    siteInformation.sample_count = 0;
+    siteInformation.total_duration_in_ns = 0;
+
+    site_id_to_information.insert({site_id, siteInformation});
+    site_informations.emplace_back(siteInformation);
+
+    return site_id;
 }
 
 extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
@@ -354,10 +419,8 @@ extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
 
     timespec ts {0};
     clock_gettime(CLOCK_MONOTONIC, &ts);
-
     sample.start_time_in_ns = toNanos(ts);
-    sample.locations = current_locations;
-    sample.lwt_function = last_lwt_function;
+    sample.site_id = get_site();
 
     promise_id_to_sample.insert({promise_id, sample});
 }
@@ -368,6 +431,42 @@ void print_location(const char* prefix, LwtLocation& location) {
            location.functionName.c_str(),
            location.fileName.c_str(),
            location.lineNumber);
+}
+
+void print_site(SiteInformation& siteInformation) {
+    printf("Site %lu, %d samples, %ld ns total\n",
+           siteInformation.site_id,
+           siteInformation.sample_count,
+           siteInformation.total_duration_in_ns);
+
+    auto sym_it = pcs_to_location.find(siteInformation.lwt_function);
+    if (sym_it != pcs_to_location.end()) {
+        print_location("Created via: ", sym_it->second);
+    }
+
+    for (LwtLocation& location : siteInformation.locations) {
+        print_location("", location);
+    }
+}
+
+bool duration_comparator(SiteInformation& l, SiteInformation& r) {
+    return (l.total_duration_in_ns > r.total_duration_in_ns);
+}
+
+void print_site_table() {
+    printf("\n\n");
+    vector<SiteInformation> all_sites{};
+    all_sites.reserve(site_id_to_information.size());
+    for (auto entry : site_id_to_information) {
+        all_sites.emplace_back(entry.second);
+    }
+    sort(all_sites.begin(), all_sites.end(), duration_comparator);
+
+    for (auto site : all_sites) {
+        print_site(site);
+        printf("\n");
+    }
+    printf("\n");
 }
 
 extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
@@ -381,17 +480,23 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
     if (it != promise_id_to_sample.end()) {
         PromiseSample& sample = it->second;
         int64_t duration_in_ns = end_time_in_ns - sample.start_time_in_ns;
-        printf("\n\nPromise took %ldns\n", duration_in_ns);
-        auto sym_it = pcs_to_location.find(sample.lwt_function);
-        if (sym_it != pcs_to_location.end()) {
-            print_location("Created via: ", sym_it->second);
+        // printf("\n\nPromise (@%lu) took %ldns\n", sample.site_id, duration_in_ns);
+
+        auto site_it = site_id_to_information.find(sample.site_id);
+        if (site_it != site_id_to_information.end()) {
+            SiteInformation& siteInformation = site_it->second;
+            siteInformation.sample_count++;
+            siteInformation.total_duration_in_ns += duration_in_ns;
+
+            // Print at end of the run
+            if ((promise_id % 12) == 0) {
+                print_site_table();
+            }
+        } else {
+            printf("Missing site: %lu\n", sample.site_id);
         }
 
-        for (LwtLocation& location : sample.locations) {
-            print_location("", location);
-        }
-
-        printf("\n\n");
+        promise_id_to_sample.erase(it);
     }
 }
 
