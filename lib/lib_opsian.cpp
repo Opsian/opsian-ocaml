@@ -223,6 +223,7 @@ extern "C" {
 
 #include <algorithm>
 #include "deps/libbacktrace/backtrace.h"
+#include <random>
 
 struct backtrace_state* lwt_bt_state = NULL;
 
@@ -266,6 +267,10 @@ vector<LwtLocation> current_locations{};
 uint64_t next_site_id = 0;
 unordered_map<uint64_t, SiteInformation> site_id_to_information {};
 unordered_map<uintptr_t, vector<SiteInformation>> lwt_function_to_site_information {};
+
+std::random_device rd;
+std::mt19937 mt(rd());
+std::uniform_real_distribution<double> distribution(0.0, 1.0);
 
 void remove(string& value, const string& search) {
     size_t pos = value.find(search);
@@ -354,7 +359,8 @@ void lwt_check_frame(const uint64_t pc) {
 }
 
 extern "C" CAMLprim value lwt_sample() {
-    return Bool_val(true);
+    const double sample = distribution(mt);
+    return sample > 0.5 ? Val_true : Val_false;
 }
 
 bool matches(vector<LwtLocation>& left, vector<LwtLocation>& right) {
@@ -489,9 +495,10 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
             siteInformation.total_duration_in_ns += duration_in_ns;
 
             // Print at end of the run
-            if ((promise_id % 12) == 0) {
+            /*if ((promise_id % 12) == 0) {
                 print_site_table();
-            }
+            }*/
+            print_site_table();
         } else {
             printf("Missing site: %lu\n", sample.site_id);
         }
