@@ -157,18 +157,22 @@ char* copy(char* source, const size_t size) {
     return result;
 }
 
+// BEGIN LWT
 void print_site_table();
 
+double sample_rate = 1.0;
 sighandler_t old_handler;
 
 void sigint_handler(int sig) {
-    // trigger atexit call
-    exit(128 + sig);
-
     if (old_handler != NULL) {
         old_handler(sig);
     }
+
+    // trigger atexit call
+    exit(128 + sig);
 }
+
+// END LWT
 
 CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str) {
@@ -186,9 +190,15 @@ CAMLprim void start_opsian_native(
 
     std::istringstream(AGENT_VERSION_STR) >> AGENT_VERSION;
 
-    // LWT Functions:
+    // BEGIN LWT:
+    char* lwt_sample_rate = getenv("LWT_SAMPLE_RATE");
+    if (lwt_sample_rate != NULL) {
+        printf("lwt_sample_rate = %s\n", lwt_sample_rate);
+        sample_rate = strtod(lwt_sample_rate, NULL);
+    }
     atexit(print_site_table);
     old_handler = signal(SIGINT, sigint_handler);
+    // END LWT
 
     OPTIONS = getenv("OPSIAN_OPTS");
     if (OPTIONS == nullptr) {
@@ -377,7 +387,7 @@ void lwt_check_frame(const uint64_t pc) {
 
 extern "C" CAMLprim value lwt_sample() {
     const double sample = distribution(mt);
-    return sample > 0.5 ? Val_true : Val_false;
+    return sample <= sample_rate ? Val_true : Val_false;
 }
 
 bool matches(vector<LwtLocation>& left, vector<LwtLocation>& right) {
