@@ -157,6 +157,19 @@ char* copy(char* source, const size_t size) {
     return result;
 }
 
+void print_site_table();
+
+sighandler_t old_handler;
+
+void sigint_handler(int sig) {
+    // trigger atexit call
+    exit(128 + sig);
+
+    if (old_handler != NULL) {
+        old_handler(sig);
+    }
+}
+
 CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str) {
 //    signal(SIGSEGV, crashHandler);
@@ -172,6 +185,10 @@ CAMLprim void start_opsian_native(
     OCAML_ARGV0 = copy(ocaml_argv0, OCAML_ARGV0_LEN);
 
     std::istringstream(AGENT_VERSION_STR) >> AGENT_VERSION;
+
+    // LWT Functions:
+    atexit(print_site_table);
+    old_handler = signal(SIGINT, sigint_handler);
 
     OPTIONS = getenv("OPSIAN_OPTS");
     if (OPTIONS == nullptr) {
@@ -493,12 +510,6 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
             SiteInformation& siteInformation = site_it->second;
             siteInformation.sample_count++;
             siteInformation.total_duration_in_ns += duration_in_ns;
-
-            // Print at end of the run
-            /*if ((promise_id % 12) == 0) {
-                print_site_table();
-            }*/
-            print_site_table();
         } else {
             printf("Missing site: %lu\n", sample.site_id);
         }
