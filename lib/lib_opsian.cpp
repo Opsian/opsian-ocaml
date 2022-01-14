@@ -160,7 +160,8 @@ char* copy(char* source, const size_t size) {
 // BEGIN LWT
 void print_site_table();
 
-double sample_rate = 1.0;
+bool lwt_enabled = false;
+double sample_rate = 0.0;
 sighandler_t old_handler;
 
 void sigint_handler(int sig) {
@@ -193,11 +194,13 @@ CAMLprim void start_opsian_native(
     // BEGIN LWT:
     char* lwt_sample_rate = getenv("LWT_SAMPLE_RATE");
     if (lwt_sample_rate != NULL) {
+        lwt_enabled = true;
         printf("lwt_sample_rate = %s\n", lwt_sample_rate);
         sample_rate = strtod(lwt_sample_rate, NULL);
+
+        atexit(print_site_table);
+        old_handler = signal(SIGINT, sigint_handler);
     }
-    atexit(print_site_table);
-    old_handler = signal(SIGINT, sigint_handler);
     // END LWT
 
     OPTIONS = getenv("OPSIAN_OPTS");
@@ -386,6 +389,10 @@ void lwt_check_frame(const uint64_t pc) {
 }
 
 extern "C" CAMLprim value lwt_sample() {
+    if (!lwt_enabled) {
+        return false;
+    }
+
     const double sample = distribution(mt);
     return sample <= sample_rate ? Val_true : Val_false;
 }
