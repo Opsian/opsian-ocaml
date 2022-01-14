@@ -487,7 +487,7 @@ bool duration_comparator(SiteInformation& l, SiteInformation& r) {
 }
 
 void print_site_table() {
-    printf("\n\n");
+    printf("\nLwt Site Table:\n\n");
     vector<SiteInformation> all_sites{};
     all_sites.reserve(site_id_to_information.size());
     for (auto entry : site_id_to_information) {
