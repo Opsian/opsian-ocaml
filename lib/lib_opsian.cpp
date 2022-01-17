@@ -490,7 +490,7 @@ extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
     promise_id_to_sample.insert({promise_id, sample});
 }
 
-void print_location(const char* prefix, LwtLocation& location) {
+void print_location(const char* prefix, const LwtLocation& location) {
     printf("%s%s @ %s:%d\n",
            prefix,
            location.functionName.c_str(),
@@ -498,7 +498,7 @@ void print_location(const char* prefix, LwtLocation& location) {
            location.lineNumber);
 }
 
-void print_site(SiteInformation& siteInformation) {
+void print_site(const SiteInformation& siteInformation) {
     printf("Site %lu, %d samples, %ld ns total\n",
            siteInformation.site_id,
            siteInformation.sample_count,
@@ -509,9 +509,11 @@ void print_site(SiteInformation& siteInformation) {
         print_location("Created via: ", sym_it->second);
     }
 
-    for (LwtLocation& location : siteInformation.locations) {
+    for (const LwtLocation& location : siteInformation.locations) {
         print_location("", location);
     }
+
+    printf("\n");
 }
 
 bool duration_comparator(SiteInformation& l, SiteInformation& r) {
@@ -529,9 +531,16 @@ void print_site_table() {
 
     for (auto site : all_sites) {
         print_site(site);
-        printf("\n");
     }
     printf("\n");
+
+    printf("\nLwt Unresolved Sites:\n\n");
+    for (auto entry : promise_id_to_sample) {
+        auto site_it = site_id_to_information.find(entry.second.site_id);
+        if (site_it != site_id_to_information.end()) {
+            print_site(site_it->second);
+        }
+    }
 }
 
 extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
