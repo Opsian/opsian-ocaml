@@ -162,6 +162,7 @@ void print_site_table();
 
 bool lwt_enabled = false;
 double sample_rate = 0.0;
+int max_frames = LWT_MAX_FRAMES_DEFAULT;
 sighandler_t old_handler;
 
 void sigint_handler(int sig) {
@@ -200,6 +201,11 @@ CAMLprim void start_opsian_native(
 
         atexit(print_site_table);
         old_handler = signal(SIGINT, sigint_handler);
+
+        char* lwt_max_frames = getenv("LWT_MAX_FRAMES");
+        if (lwt_max_frames != NULL) {
+            max_frames = atoi(lwt_max_frames);
+        }
     }
     // END LWT
 
@@ -284,13 +290,16 @@ struct SiteInformation {
 
 const char* PREFIX = "camlLwt_";
 const size_t PREFIX_LEN = strlen(PREFIX);
+const string OPSIAN_PREFIX = "Opsian__Lib";
 
 const int NO_FUNCTION = -1;
 
+
+const uintptr_t NO_LWT_FUNCTION = 0;
+uint64_t opsian_pc = NO_LWT_FUNCTION;
 unordered_set<uint64_t> lwt_pcs {};
 unordered_map<uint64_t, LwtLocation> pcs_to_location {};
 unordered_map<int, PromiseSample> promise_id_to_sample{};
-const uintptr_t NO_LWT_FUNCTION = 0;
 uintptr_t last_lwt_function = NO_LWT_FUNCTION;
 vector<LwtLocation> current_locations{};
 
@@ -362,6 +371,10 @@ void lwt_check_frame(const uint64_t pc) {
         return;
     }
 
+    if (pc == opsian_pc) {
+        return;
+    }
+
     auto it = pcs_to_location.find(pc);
     if (it != pcs_to_location.end()) {
         current_locations.emplace_back(it->second);
@@ -382,6 +395,9 @@ void lwt_check_frame(const uint64_t pc) {
         if (location.lwt) {
             lwt_pcs.insert(pc);
             last_lwt_function = pc;
+        } else if (location.functionName.find(OPSIAN_PREFIX, 0) == 0) {
+            // Filter out opsian from the stack trace
+            opsian_pc = pc;
         } else {
             current_locations.emplace_back(location);
         }
@@ -443,8 +459,8 @@ extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
         lwt_bt_state = backtrace_create_state(NULL, 0, lwtHandleBtError, NULL);
     }
 
-    CallFrame frames[LWT_MAX_FRAMES];
-    int count = lwt_handle(frames);
+    CallFrame frames[max_frames];
+    int count = lwt_handle(frames, max_frames);
     int promise_id = Int_val(ocaml_id);
 
     last_lwt_function = NO_LWT_FUNCTION;

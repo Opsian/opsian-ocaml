@@ -13,8 +13,7 @@
 
 extern "C" int linkable_handle(CallFrame* frames, ErrorHolder* errorHolder);
 
-// NB: some methods get skipped over during the stack walk and we're down in the depths so pick 8 for certainty.
-extern "C" int lwt_handle(CallFrame* frames);
+extern "C" int lwt_handle(CallFrame* frames, int max_frames);
 
 #ifdef __MACH__
 #   include <mach/clock.h>

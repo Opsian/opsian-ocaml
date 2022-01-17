@@ -143,7 +143,7 @@ int linkable_handle(CallFrame* frames, ErrorHolder* holder) {
     return num_frames;
 }
 
-int lwt_handle(CallFrame* frames) {
+int lwt_handle(CallFrame* frames, int max_frames) {
     int num_frames = 0;
     int ret;
     unw_context_t ucp;
@@ -164,7 +164,7 @@ int lwt_handle(CallFrame* frames) {
         return num_frames;
     }
 
-    while (num_frames < LWT_MAX_FRAMES) {
+    while (num_frames < max_frames) {
         ret = unw_step(&cursor);
 
         if (ret == 0) {
@@ -201,7 +201,7 @@ int lwt_handle(CallFrame* frames) {
             pc = (uint64_t) uw_ip;
             sp = (char*) uw_sp;
 
-            while (num_frames < (LWT_MAX_FRAMES - 1)) {
+            while (num_frames < (max_frames - 1)) {
                 frame_descr* fd;
                 #ifdef MULTICORE
                 fd = caml_next_frame_descriptor(fds, &pc, &sp, domain_state->current_stack);
