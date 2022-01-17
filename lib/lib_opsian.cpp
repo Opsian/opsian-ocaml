@@ -292,14 +292,15 @@ const char* PREFIX = "camlLwt_";
 const size_t PREFIX_LEN = strlen(PREFIX);
 const string OPSIAN_PREFIX = "Opsian__Lib";
 
-const int NO_FUNCTION = -1;
-
+const int NO_LINE_NUMBER = -1;
 
 const uintptr_t NO_LWT_FUNCTION = 0;
 uint64_t opsian_pc = NO_LWT_FUNCTION;
 unordered_set<uint64_t> lwt_pcs {};
 unordered_map<uint64_t, LwtLocation> pcs_to_location {};
 unordered_map<int, PromiseSample> promise_id_to_sample{};
+
+bool seen_application_code = false;
 uintptr_t last_lwt_function = NO_LWT_FUNCTION;
 vector<LwtLocation> current_locations{};
 
@@ -330,7 +331,7 @@ void lwtHandleSyminfo (
     if (symname == NULL) {
         printf("Missing symbol name for %lu\n", pc);
         location->functionId = pc;
-        location->lineNumber = NO_FUNCTION;
+        location->lineNumber = NO_LINE_NUMBER;
         return;
     }
 
@@ -367,7 +368,13 @@ int64_t toNanos(const timespec& timestamp) {
 void lwt_check_frame(const uint64_t pc) {
     // Skip over lwt frames
     if (lwt_pcs.count(pc) > 0) {
-        last_lwt_function = pc;
+        // We keep track of the last lwt function before it entered application code.
+        // We don't want to expose the internals of LWT, so we don't track anything below here.
+        // The stacktrace might go back out into LWT code after application code, so we only track it before we see
+        // application code.
+        if (!seen_application_code) {
+            last_lwt_function = pc;
+        }
         return;
     }
 
@@ -377,15 +384,15 @@ void lwt_check_frame(const uint64_t pc) {
 
     auto it = pcs_to_location.find(pc);
     if (it != pcs_to_location.end()) {
+        seen_application_code = true;
         current_locations.emplace_back(it->second);
         return;
     }
 
     // Get the Ocaml function name
-
     LwtLocation location{};
     backtrace_syminfo(lwt_bt_state, pc, lwtHandleSyminfo, lwtHandleBtError, &location);
-    if (location.lineNumber != NO_FUNCTION) {
+    if (location.lineNumber != NO_LINE_NUMBER) {
         // Get the Ocaml file name / line number
         backtrace_pcinfo(lwt_bt_state, pc, lwtHandlePcInfo, lwtHandleBtError, &location);
 
@@ -399,6 +406,7 @@ void lwt_check_frame(const uint64_t pc) {
             // Filter out opsian from the stack trace
             opsian_pc = pc;
         } else {
+            seen_application_code = true;
             current_locations.emplace_back(location);
         }
     }
@@ -463,6 +471,7 @@ extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
     int count = lwt_handle(frames, max_frames);
     int promise_id = Int_val(ocaml_id);
 
+    seen_application_code = false;
     last_lwt_function = NO_LWT_FUNCTION;
     current_locations.clear();
     for (int i = 0; i < count; i++) {
