@@ -280,10 +280,18 @@ struct PromiseSample {
     uint64_t site_id;
 };
 
+struct EndSiteInformation {
+    uintptr_t end_lwt_function;
+    vector<LwtLocation> end_locations;
+    int32_t sample_count;
+    int64_t total_duration_in_ns;
+};
+
 struct SiteInformation {
     uint64_t site_id;
     uintptr_t lwt_function;
     vector<LwtLocation> locations;
+    vector<EndSiteInformation> end_site_information;
     int32_t sample_count;
     int64_t total_duration_in_ns;
 };
@@ -295,7 +303,7 @@ const string OPSIAN_PREFIX = "Opsian__Lib";
 const int NO_LINE_NUMBER = -1;
 
 const uintptr_t NO_LWT_FUNCTION = 0;
-uint64_t opsian_pc = NO_LWT_FUNCTION;
+unordered_set<uint64_t> opsian_pcs {};
 unordered_set<uint64_t> lwt_pcs {};
 unordered_map<uint64_t, LwtLocation> pcs_to_location {};
 unordered_map<int, PromiseSample> promise_id_to_sample{};
@@ -378,7 +386,7 @@ void lwt_check_frame(const uint64_t pc) {
         return;
     }
 
-    if (pc == opsian_pc) {
+    if (opsian_pcs.count(pc) > 0) {
         return;
     }
 
@@ -404,7 +412,7 @@ void lwt_check_frame(const uint64_t pc) {
             last_lwt_function = pc;
         } else if (location.functionName.find(OPSIAN_PREFIX, 0) == 0) {
             // Filter out opsian from the stack trace
-            opsian_pc = pc;
+            opsian_pcs.insert(pc);
         } else {
             seen_application_code = true;
             current_locations.emplace_back(location);
@@ -421,7 +429,7 @@ extern "C" CAMLprim value lwt_sample() {
     return sample <= sample_rate ? Val_true : Val_false;
 }
 
-bool matches(vector<LwtLocation>& left, vector<LwtLocation>& right) {
+bool matches(const vector<LwtLocation>& left, const vector<LwtLocation>& right) {
     if (left.size() != right.size()) {
         return false;
     }
@@ -439,7 +447,6 @@ bool matches(vector<LwtLocation>& left, vector<LwtLocation>& right) {
 }
 
 uint64_t get_site() {
-    // TODO: improve efficiency of this
     vector<SiteInformation>& site_informations = lwt_function_to_site_information[last_lwt_function];
     for (SiteInformation& site : site_informations) {
         if (matches(current_locations, site.locations)) {
@@ -462,15 +469,9 @@ uint64_t get_site() {
     return site_id;
 }
 
-extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
-    if (lwt_bt_state == NULL) {
-        lwt_bt_state = backtrace_create_state(NULL, 0, lwtHandleBtError, NULL);
-    }
-
+void collect_stack_trace() {
     CallFrame frames[max_frames];
     int count = lwt_handle(frames, max_frames);
-    int promise_id = Int_val(ocaml_id);
-
     seen_application_code = false;
     last_lwt_function = NO_LWT_FUNCTION;
     current_locations.clear();
@@ -479,6 +480,16 @@ extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
             lwt_check_frame(frames[i].frame);
         }
     }
+}
+
+extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
+    if (lwt_bt_state == NULL) {
+        lwt_bt_state = backtrace_create_state(NULL, 0, lwtHandleBtError, NULL);
+    }
+
+    int promise_id = Int_val(ocaml_id);
+
+    collect_stack_trace();
 
     PromiseSample sample {};
 
@@ -500,9 +511,9 @@ void print_location(const char* prefix, const LwtLocation& location) {
 
 void print_site(const SiteInformation& siteInformation) {
     printf("Site %lu, %d samples, %ld ns total\n",
-           siteInformation.site_id,
-           siteInformation.sample_count,
-           siteInformation.total_duration_in_ns);
+      siteInformation.site_id,
+      siteInformation.sample_count,
+      siteInformation.total_duration_in_ns);
 
     auto sym_it = pcs_to_location.find(siteInformation.lwt_function);
     if (sym_it != pcs_to_location.end()) {
@@ -514,6 +525,23 @@ void print_site(const SiteInformation& siteInformation) {
     }
 
     printf("\n");
+
+    for (const EndSiteInformation& end_site : siteInformation.end_site_information) {
+        auto sym_it = pcs_to_location.find(end_site.end_lwt_function);
+        if (sym_it != pcs_to_location.end()) {
+            print_location("\tEnded via: ", sym_it->second);
+        }
+
+        printf("\t%d samples, %ld ns total\n",
+               siteInformation.sample_count,
+               siteInformation.total_duration_in_ns);
+
+        for (const LwtLocation& location : siteInformation.locations) {
+            print_location("\t", location);
+        }
+
+        printf("\n");
+    }
 }
 
 bool duration_comparator(SiteInformation& l, SiteInformation& r) {
@@ -524,18 +552,18 @@ void print_site_table() {
     printf("\nLwt Site Table:\n\n");
     vector<SiteInformation> all_sites{};
     all_sites.reserve(site_id_to_information.size());
-    for (auto entry : site_id_to_information) {
+    for (auto& entry : site_id_to_information) {
         all_sites.emplace_back(entry.second);
     }
     sort(all_sites.begin(), all_sites.end(), duration_comparator);
 
-    for (auto site : all_sites) {
+    for (auto& site : all_sites) {
         print_site(site);
     }
     printf("\n");
 
     printf("\nLwt Unresolved Sites:\n\n");
-    for (auto entry : promise_id_to_sample) {
+    for (auto& entry : promise_id_to_sample) {
         auto site_it = site_id_to_information.find(entry.second.site_id);
         if (site_it != site_id_to_information.end()) {
             print_site(site_it->second);
@@ -561,6 +589,29 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
             SiteInformation& siteInformation = site_it->second;
             siteInformation.sample_count++;
             siteInformation.total_duration_in_ns += duration_in_ns;
+
+            collect_stack_trace();
+
+            bool found_end = false;
+            for (auto& end_site : siteInformation.end_site_information) {
+                if (end_site.end_lwt_function == last_lwt_function &&
+                    matches(current_locations, end_site.end_locations)) {
+                    end_site.sample_count++;
+                    end_site.total_duration_in_ns += duration_in_ns;
+                    found_end = true;
+                    break;
+                }
+            }
+
+            if (!found_end) {
+                EndSiteInformation end_site{};
+                end_site.end_lwt_function = last_lwt_function;
+                end_site.end_locations = current_locations;
+                end_site.sample_count = 1;
+                end_site.total_duration_in_ns = duration_in_ns;
+
+                siteInformation.end_site_information.emplace_back(end_site);
+            }
         } else {
             printf("Missing site: %lu\n", sample.site_id);
         }
