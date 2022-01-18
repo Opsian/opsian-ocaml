@@ -533,10 +533,10 @@ void print_site(const SiteInformation& siteInformation) {
         }
 
         printf("\t%d samples, %ld ns total\n",
-               siteInformation.sample_count,
-               siteInformation.total_duration_in_ns);
+               end_site.sample_count,
+               end_site.total_duration_in_ns);
 
-        for (const LwtLocation& location : siteInformation.locations) {
+        for (const LwtLocation& location : end_site.end_locations) {
             print_location("\t", location);
         }
 
