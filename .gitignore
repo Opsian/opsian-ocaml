@@ -50,4 +50,4 @@ lib/libunwind-common.h
 debug-*.log
 
 env
-
+tracing.json

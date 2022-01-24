@@ -280,11 +280,30 @@ struct PromiseSample {
     uint64_t site_id;
 };
 
+struct Span {
+    int64_t start_time_in_ns;
+    int64_t end_time_in_ns;
+    int64_t duration_in_ns() const {
+        return end_time_in_ns - start_time_in_ns;
+    }
+};
+
 struct EndSiteInformation {
     uintptr_t end_lwt_function;
     vector<LwtLocation> end_locations;
-    int32_t sample_count;
-    int64_t total_duration_in_ns;
+    vector<Span> spans;
+
+    size_t sample_count() const {
+        return spans.size();
+    }
+
+    int64_t total_duration_in_ns() const {
+        int64_t total_duration_in_ns = 0;
+        for (const Span& span : spans) {
+            total_duration_in_ns += span.duration_in_ns();
+        }
+        return total_duration_in_ns;
+    }
 };
 
 struct SiteInformation {
@@ -532,9 +551,9 @@ void print_site(const SiteInformation& siteInformation) {
             print_location("\tEnded via: ", sym_it->second);
         }
 
-        printf("\t%d samples, %ld ns total\n",
-               end_site.sample_count,
-               end_site.total_duration_in_ns);
+        printf("\t%zu samples, %ld ns total\n",
+               end_site.sample_count(),
+               end_site.total_duration_in_ns());
 
         for (const LwtLocation& location : end_site.end_locations) {
             print_location("\t", location);
@@ -546,6 +565,69 @@ void print_site(const SiteInformation& siteInformation) {
 
 bool duration_comparator(SiteInformation& l, SiteInformation& r) {
     return (l.total_duration_in_ns > r.total_duration_in_ns);
+}
+
+void emit_event(ofstream& file, const string& name, int64_t time_in_ns, int64_t duration_in_ns) {
+    static bool first = true;
+    if (first) {
+        first = false;
+    } else {
+        file << ",";
+    }
+
+    file <<    "    {\"name\": \""
+        << name
+        // TODO:   << "\", \"cat\": \"PERF\", "
+        << "\", \"ph\": \"X\", \"pid\": 0, \"tid\": 0, \"ts\": "
+        << (time_in_ns / 1000) // Convert to Microsecond for Chrome
+        << ", \"dur\": "
+        << (duration_in_ns / 1000)
+        << "}\n";
+    // TODO:  "sf": <stack frame id> and "esf" for end
+}
+
+void emit_chrome_tracing_file(vector<SiteInformation>& all_sites) {
+    ofstream file;
+    file.open("tracing.json");
+    if (!file.is_open()) {
+        logError("Failed to open file\n");
+        return;
+    }
+
+    file << "{\n"
+        << "  \"traceEvents\": [\n";
+
+    for (auto& site : all_sites) {
+        auto sym_it = pcs_to_location.find(site.lwt_function);
+        if (sym_it != pcs_to_location.end()) {
+            const LwtLocation& location = sym_it->second;
+            const string& name = location.functionName;
+
+            for (const EndSiteInformation& end_site : site.end_site_information) {
+                auto sym_it = pcs_to_location.find(end_site.end_lwt_function);
+                if (sym_it != pcs_to_location.end()) {
+                    // TODO: sym_it->second
+                }
+
+                for (const Span& span : end_site.spans) {
+                    emit_event(file, name, span.start_time_in_ns, span.duration_in_ns());
+                }
+            }
+        } else {
+            // TODO: error log
+        }
+    }
+
+    file << "  ],\n"
+        // TODO:   "  \"stackFrames\": {...}\n"
+        //{
+        //  'category': 'libchrome.so',
+        //  'name': 'CrRendererMain',
+        //  'parent': 1
+        //}
+        << "}";
+
+    file.close();
 }
 
 void print_site_table() {
@@ -569,6 +651,8 @@ void print_site_table() {
             print_site(site_it->second);
         }
     }
+
+    emit_chrome_tracing_file(all_sites);
 }
 
 extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
@@ -592,12 +676,15 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
 
             collect_stack_trace();
 
+            Span span {};
+            span.start_time_in_ns = sample.start_time_in_ns;
+            span.end_time_in_ns = end_time_in_ns;
+
             bool found_end = false;
             for (auto& end_site : siteInformation.end_site_information) {
                 if (end_site.end_lwt_function == last_lwt_function &&
                     matches(current_locations, end_site.end_locations)) {
-                    end_site.sample_count++;
-                    end_site.total_duration_in_ns += duration_in_ns;
+                    end_site.spans.emplace_back(span);
                     found_end = true;
                     break;
                 }
@@ -607,8 +694,7 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
                 EndSiteInformation end_site{};
                 end_site.end_lwt_function = last_lwt_function;
                 end_site.end_locations = current_locations;
-                end_site.sample_count = 1;
-                end_site.total_duration_in_ns = duration_in_ns;
+                end_site.spans.emplace_back(span);
 
                 siteInformation.end_site_information.emplace_back(end_site);
             }

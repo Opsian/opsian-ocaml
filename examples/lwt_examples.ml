@@ -1,8 +1,8 @@
 open Lwt
 
 let sleep_eg () =
-  Lwt_unix.sleep 0.00001 >>= fun () ->
-    Lwt_unix.sleep 1.0
+  Lwt_unix.sleep 0.1 >>= fun () ->
+    Lwt_unix.sleep 0.5
 
 let run_lwt () =
   print_endline "run_lwt";
