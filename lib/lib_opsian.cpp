@@ -567,7 +567,13 @@ bool duration_comparator(SiteInformation& l, SiteInformation& r) {
     return (l.total_duration_in_ns > r.total_duration_in_ns);
 }
 
-void emit_event(ofstream& file, const string& name, int64_t time_in_ns, int64_t duration_in_ns) {
+void emit_event(
+    ofstream& file,
+    const string& name,
+    const int64_t time_in_ns,
+    const int64_t duration_in_ns,
+    const uint64_t site_id) {
+
     static bool first = true;
     if (first) {
         first = false;
@@ -582,9 +588,51 @@ void emit_event(ofstream& file, const string& name, int64_t time_in_ns, int64_t 
         << (time_in_ns / 1000) // Convert to Microsecond for Chrome
         << ", \"dur\": "
         << (duration_in_ns / 1000)
+        << ", \"sf\": "
+        << site_id
         << "}\n";
-    // TODO:  "sf": <stack frame id> and "esf" for end
+    // TODO:  "esf" for end stack frame id
 }
+
+void emit_stack_frames(
+    ofstream& file,
+    vector<SiteInformation>& all_sites) {
+
+    file << "  \"stackFrames\": {\n";
+
+    // We use the site_id as the end stack frame for a given callsite, frame name de-duplication suboptimal
+    // ensure that stacK_frame_ids don't overlap with site ids
+    uint64_t next_stack_frame_id = next_site_id + 1;
+
+    bool first_site = true;
+    for (auto& site : all_sites) {
+        bool first_location = true;
+        for (const LwtLocation& location : site.locations) {
+            if (first_site) {
+                first_site = false;
+                file << " ";
+            } else {
+                file << ",";
+            }
+
+            const bool last = &location == &site.locations.back();
+            const uint64_t parent_stack_frame_id = next_stack_frame_id - 1;
+            const uint64_t stack_frame_id = last ? site.site_id : next_stack_frame_id++;
+
+            file << "   \"" << stack_frame_id << "\": {\n";
+            file << "      \"name\": \"" << location.functionName << " @ " << location.fileName << ":" << location.lineNumber << "\"\n";
+            if (!first_location) {
+                file << ",     \"parent\": \"" << parent_stack_frame_id << "\"\n";
+            } else {
+                first_location = false;
+            }
+            file << "    }\n"; // end frame entry
+        }
+    }
+
+    file << "  }\n"; // end stackFrames
+}
+
 
 void emit_chrome_tracing_file(vector<SiteInformation>& all_sites) {
     ofstream file;
@@ -610,7 +658,7 @@ void emit_chrome_tracing_file(vector<SiteInformation>& all_sites) {
                 }
 
                 for (const Span& span : end_site.spans) {
-                    emit_event(file, name, span.start_time_in_ns, span.duration_in_ns());
+                    emit_event(file, name, span.start_time_in_ns, span.duration_in_ns(), site.site_id);
                 }
             }
         } else {
@@ -618,14 +666,9 @@ void emit_chrome_tracing_file(vector<SiteInformation>& all_sites) {
         }
     }
 
-    file << "  ],\n"
-        // TODO:   "  \"stackFrames\": {...}\n"
-        //{
-        //  'category': 'libchrome.so',
-        //  'name': 'CrRendererMain',
-        //  'parent': 1
-        //}
-        << "}";
+    file << "  ],\n"; // end traceEvents
+    emit_stack_frames(file, all_sites);
+    file << "}";
 
     file.close();
 }
