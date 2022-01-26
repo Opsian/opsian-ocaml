@@ -122,6 +122,7 @@
 (library
  (name opsian)
  (public_name opsian)
+ (libraries threads )
  (library_flags -linkall)
  (foreign_stubs
   (language c)
