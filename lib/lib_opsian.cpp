@@ -283,12 +283,15 @@ struct PromiseSample {
 struct Span {
     int64_t start_time_in_ns;
     int64_t end_time_in_ns;
+    int promise_id;
+
     int64_t duration_in_ns() const {
         return end_time_in_ns - start_time_in_ns;
     }
 };
 
 struct EndSiteInformation {
+    uint64_t site_id;
     uintptr_t end_lwt_function;
     vector<LwtLocation> end_locations;
     vector<Span> spans;
@@ -426,7 +429,7 @@ void lwt_check_frame(const uint64_t pc) {
         pcs_to_location.insert({pc, location});
 
         // It's part of LWT
-        if (location.lwt) {
+        if (location.lwt /*&& !seen_application_code*/) { // TODO
             lwt_pcs.insert(pc);
             last_lwt_function = pc;
         } else if (location.functionName.find(OPSIAN_PREFIX, 0) == 0) {
@@ -570,9 +573,9 @@ bool duration_comparator(SiteInformation& l, SiteInformation& r) {
 void emit_event(
     ofstream& file,
     const string& name,
-    const int64_t time_in_ns,
-    const int64_t duration_in_ns,
-    const uint64_t site_id) {
+    const Span& span,
+    const uint64_t sf_id,
+    const uint64_t esf_id) {
 
     static bool first = true;
     if (first) {
@@ -583,15 +586,54 @@ void emit_event(
 
     file <<    "    {\"name\": \""
         << name
-        // TODO:   << "\", \"cat\": \"PERF\", "
-        << "\", \"ph\": \"X\", \"pid\": 0, \"tid\": 0, \"ts\": "
-        << (time_in_ns / 1000) // Convert to Microsecond for Chrome
+        // Optional:   << "\", \"cat\": \"PERF\", "
+        << "\", \"ph\": \"X\", \"pid\": 0, \"tid\": "
+        << span.promise_id
+        << ", \"ts\": "
+        << (span.start_time_in_ns / 1000) // Convert to Microsecond for Chrome
         << ", \"dur\": "
-        << (duration_in_ns / 1000)
+        << (span.duration_in_ns() / 1000)
         << ", \"sf\": "
-        << site_id
+        << sf_id
+        << ", \"esf\": "
+        << esf_id
         << "}\n";
-    // TODO:  "esf" for end stack frame id
+}
+
+struct StackFrameEmissionInfo {
+    bool first_site;
+    uint64_t next_stack_frame_id;
+};
+
+void emit_stack_frame_from_site(
+    ofstream& file,
+    StackFrameEmissionInfo& info,
+    const uint64_t site_id,
+    const vector<LwtLocation>& site_locations) {
+
+    bool first_location = true;
+
+    for (const LwtLocation& location : site_locations) {
+        if (info.first_site) {
+            info.first_site = false;
+            file << " ";
+        } else {
+            file << ",";
+        }
+
+        const bool last = &location == &site_locations.back();
+        const uint64_t parent_stack_frame_id = info.next_stack_frame_id - 1;
+        const uint64_t stack_frame_id = last ? site_id : info.next_stack_frame_id++;
+
+        file << "   \"" << stack_frame_id << "\": {\n";
+        file << "      \"name\": \"" << location.functionName << " @ " << location.fileName << ":" << location.lineNumber << "\"\n";
+        if (!first_location) {
+            file << ",     \"parent\": \"" << parent_stack_frame_id << "\"\n";
+        } else {
+            first_location = false;
+        }
+        file << "    }\n"; // end frame entry
+    }
 }
 
 void emit_stack_frames(
@@ -600,39 +642,22 @@ void emit_stack_frames(
 
     file << "  \"stackFrames\": {\n";
 
+    StackFrameEmissionInfo info {};
+
     // We use the site_id as the end stack frame for a given callsite, frame name de-duplication suboptimal
-    // ensure that stacK_frame_ids don't overlap with site ids
-    uint64_t next_stack_frame_id = next_site_id + 1;
+    // ensure that stack_frame_ids don't overlap with site ids
+    info.next_stack_frame_id = next_site_id + 1;
+    info.first_site = true;
 
-    bool first_site = true;
     for (auto& site : all_sites) {
-        bool first_location = true;
-        for (const LwtLocation& location : site.locations) {
-            if (first_site) {
-                first_site = false;
-                file << " ";
-            } else {
-                file << ",";
-            }
-
-            const bool last = &location == &site.locations.back();
-            const uint64_t parent_stack_frame_id = next_stack_frame_id - 1;
-            const uint64_t stack_frame_id = last ? site.site_id : next_stack_frame_id++;
-
-            file << "   \"" << stack_frame_id << "\": {\n";
-            file << "      \"name\": \"" << location.functionName << " @ " << location.fileName << ":" << location.lineNumber << "\"\n";
-            if (!first_location) {
-                file << ",     \"parent\": \"" << parent_stack_frame_id << "\"\n";
-            } else {
-                first_location = false;
-            }
-            file << "    }\n"; // end frame entry
+        emit_stack_frame_from_site(file, info, site.site_id, site.locations);
+        for (auto& end_site : site.end_site_information) {
+            emit_stack_frame_from_site(file, info, end_site.site_id, end_site.end_locations);
         }
     }
 
     file << "  }\n"; // end stackFrames
 }
-
 
 void emit_chrome_tracing_file(vector<SiteInformation>& all_sites) {
     ofstream file;
@@ -658,7 +683,7 @@ void emit_chrome_tracing_file(vector<SiteInformation>& all_sites) {
                 }
 
                 for (const Span& span : end_site.spans) {
-                    emit_event(file, name, span.start_time_in_ns, span.duration_in_ns(), site.site_id);
+                    emit_event(file, name, span, site.site_id, end_site.site_id);
                 }
             }
         } else {
@@ -720,6 +745,7 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
             collect_stack_trace();
 
             Span span {};
+            span.promise_id = promise_id;
             span.start_time_in_ns = sample.start_time_in_ns;
             span.end_time_in_ns = end_time_in_ns;
 
@@ -735,10 +761,10 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
 
             if (!found_end) {
                 EndSiteInformation end_site{};
+                end_site.site_id = next_site_id++;
                 end_site.end_lwt_function = last_lwt_function;
                 end_site.end_locations = current_locations;
                 end_site.spans.emplace_back(span);
-
                 siteInformation.end_site_information.emplace_back(end_site);
             }
         } else {
