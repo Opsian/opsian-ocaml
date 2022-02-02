@@ -429,9 +429,12 @@ void lwt_check_frame(const uint64_t pc) {
         pcs_to_location.insert({pc, location});
 
         // It's part of LWT
-        if (location.lwt /*&& !seen_application_code*/) { // TODO
+        if (location.lwt) {
             lwt_pcs.insert(pc);
-            last_lwt_function = pc;
+            if (!seen_application_code) {
+                last_lwt_function = pc;
+            }
+            current_locations.emplace_back(location);
         } else if (location.functionName.find(OPSIAN_PREFIX, 0) == 0) {
             // Filter out opsian from the stack trace
             opsian_pcs.insert(pc);
