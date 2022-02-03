@@ -396,8 +396,13 @@ int64_t toNanos(const timespec& timestamp) {
 }
 
 void lwt_check_frame(const uint64_t pc) {
-    // Skip over lwt frames
-    if (lwt_pcs.count(pc) > 0) {
+    // Skip over Opsian frame
+    if (opsian_pcs.count(pc) > 0) {
+        return;
+    }
+
+    bool inside_lwt = lwt_pcs.count(pc) > 0;
+    if (inside_lwt) {
         // We keep track of the last lwt function before it entered application code.
         // We don't want to expose the internals of LWT, so we don't track anything below here.
         // The stacktrace might go back out into LWT code after application code, so we only track it before we see
@@ -405,16 +410,13 @@ void lwt_check_frame(const uint64_t pc) {
         if (!seen_application_code) {
             last_lwt_function = pc;
         }
-        return;
-    }
-
-    if (opsian_pcs.count(pc) > 0) {
-        return;
     }
 
     auto it = pcs_to_location.find(pc);
     if (it != pcs_to_location.end()) {
-        seen_application_code = true;
+        if (!inside_lwt) {
+            seen_application_code = true;
+        }
         current_locations.emplace_back(it->second);
         return;
     }
@@ -700,6 +702,8 @@ void emit_chrome_tracing_file(vector<SiteInformation>& all_sites) {
 
     file.close();
 }
+
+
 
 void print_site_table() {
     printf("\nLwt Site Table:\n\n");
