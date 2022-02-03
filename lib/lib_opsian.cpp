@@ -703,7 +703,100 @@ void emit_chrome_tracing_file(vector<SiteInformation>& all_sites) {
     file.close();
 }
 
+void comma(ofstream& file, bool* first) {
+    if (*first) {
+        *first = false;
+        file << " ";
+    } else {
+        file << ",";
+    }
+}
 
+void emit_dump(vector<SiteInformation>& all_sites) {
+    ofstream file;
+    file.open("dump.json");
+    if (!file.is_open()) {
+        logError("Failed to open file\n");
+        return;
+    }
+
+    file << "{\n";
+
+    file << "  \"locations\": [\n";
+    bool first_locations = true;
+    for (auto& entry : pcs_to_location) {
+        const LwtLocation& location = entry.second;
+
+        comma(file, &first_locations);
+        file << "   {\n";
+        file << "      \"pc\": " << location.functionId << ",\n";
+        file << "      \"line_number\": " << location.lineNumber << ",\n";
+        file << "      \"file_name\": \"" << location.fileName << "\",\n";
+        file << "      \"function_name\": \"" << location.functionName << "\",\n";
+        file << "      \"lwt\": " << (location.lwt ? "true" : "false") << "\n";
+        file << "    }\n";
+    }
+    file << "  ],\n";
+
+    file << "  \"sites\": [\n";
+    bool first_sites = true;
+    for (auto& site : all_sites) {
+        auto sym_it = pcs_to_location.find(site.lwt_function);
+        if (sym_it != pcs_to_location.end()) {
+            comma(file, &first_sites);
+            file << "   {\n"; // begin site
+            file << "      \"site_id\": " << site.site_id << ",\n";
+
+            file << "      \"locations\": [\n";
+            bool first_site_locations = true;
+            for (const LwtLocation& location : site.locations) {
+                comma(file, &first_site_locations);
+                file << "         " << location.functionId << "\n";
+            }
+            file << "      ], \n";
+
+            file << "      \"end_sites\": [\n";
+            bool first_end_sites = true;
+            for (const EndSiteInformation& end_site : site.end_site_information) {
+                comma(file, &first_end_sites);
+                file << "          {\n";
+                file << "              \"end_lwt_pc\": " << end_site.end_lwt_function << ",\n";
+
+                file << "              \"end_locations\": [\n";
+                bool first_end_locations = true;
+                for (const LwtLocation& location : end_site.end_locations) {
+                    comma(file, &first_end_locations);
+                    file << "                 " << location.functionId << "\n";
+                }
+                file << "              ], \n";
+
+                file << "              \"spans\": [\n";
+                bool first_spans = true;
+                for (const Span& span : end_site.spans) {
+                    comma(file, &first_spans);
+                    file << "                  {\n";
+                    file << "                      \"id\": " << span.promise_id << ",\n";
+                    file << "                      \"start\": " << span.start_time_in_ns << ",\n";
+                    file << "                      \"end\": " << span.end_time_in_ns << "\n";
+                    file << "                  }\n";
+                }
+                file << "              ] \n";
+
+                file << "          }\n";
+            }
+            file << "      ] \n";
+
+            file << "    }\n"; // end site
+        } else {
+            // TODO: error log
+        }
+    }
+    file << "  ]\n";
+
+    file << "}";
+
+    file.close();
+}
 
 void print_site_table() {
     printf("\nLwt Site Table:\n\n");
@@ -728,6 +821,7 @@ void print_site_table() {
     }
 
     emit_chrome_tracing_file(all_sites);
+    emit_dump(all_sites);
 }
 
 extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
