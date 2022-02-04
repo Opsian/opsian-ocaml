@@ -746,6 +746,7 @@ void emit_dump(vector<SiteInformation>& all_sites) {
             comma(file, &first_sites);
             file << "   {\n"; // begin site
             file << "      \"site_id\": " << site.site_id << ",\n";
+            file << "      \"lwt_function\": " << site.lwt_function << ",\n";
 
             file << "      \"locations\": [\n";
             bool first_site_locations = true;
