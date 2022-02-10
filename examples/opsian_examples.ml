@@ -182,5 +182,7 @@ let () =
   | "native_callback"::[] -> native_callback ()
   | "gc"::"unforced"::count::[] -> gc false (int_of_string count)
   | "gc"::count::[] -> gc true (int_of_string count)
-  | "lwt"::[] -> run_lwt ()
+  | "lwt_sleep"::[] -> run_lwt_sleep ()
+  | "lwt_join"::[] -> run_lwt_join ()
+  | "lwt_choose"::[] -> run_lwt_choose ()
   | _ -> Printf.printf "Unknown \n";
