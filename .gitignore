@@ -51,4 +51,4 @@ debug-*.log
 
 env
 tracing.json
-dump.json
+*dump.json

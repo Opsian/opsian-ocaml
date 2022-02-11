@@ -1,12 +1,20 @@
 open Lwt
 
-let sleep_eg () =
-  Lwt_unix.sleep 0.1 >>= fun () ->
-    Lwt_unix.sleep 0.5
+let [@inline never][@local never][@specialise never] op1 () =
+  ignore(Sys.opaque_identity(1));
+  Lwt_unix.sleep 0.1
 
-let op1 () = Lwt_unix.sleep 0.1
-let op2 () = Lwt_unix.sleep 0.1
-let op3 () = Lwt_unix.sleep 0.1
+let [@inline never][@local never][@specialise never] op2 () =
+  ignore(Sys.opaque_identity(1));
+  Lwt_unix.sleep 0.2
+
+let [@inline never][@local never][@specialise never] op3 () =
+  ignore(Sys.opaque_identity(1));
+  Lwt_unix.sleep 0.3
+
+let [@inline never][@local never][@specialise never] sleep_eg () =
+  op1 () >>=
+    op2
 
 let run_joined () =
   Lwt.join [ op1() ; op2() ; op3()]
