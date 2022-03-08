@@ -278,12 +278,15 @@ struct LwtLocation {
 struct PromiseSample {
     int64_t start_time_in_ns;
     uint64_t site_id;
+    int parent_promise_id;
 };
 
 struct Span {
     int64_t start_time_in_ns;
     int64_t end_time_in_ns;
     int promise_id;
+    int create_parent_promise_id;
+    int resolve_parent_promise_id;
 
     int64_t duration_in_ns() const {
         return end_time_in_ns - start_time_in_ns;
@@ -509,7 +512,7 @@ void collect_stack_trace() {
     }
 }
 
-extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
+extern "C" CAMLprim void lwt_on_create(value ocaml_id, value ocaml_parent_id) {
     if (lwt_bt_state == NULL) {
         lwt_bt_state = backtrace_create_state(NULL, 0, lwtHandleBtError, NULL);
     }
@@ -524,6 +527,7 @@ extern "C" CAMLprim void lwt_on_create(value ocaml_id) {
     clock_gettime(CLOCK_MONOTONIC, &ts);
     sample.start_time_in_ns = toNanos(ts);
     sample.site_id = get_site();
+    sample.parent_promise_id = Int_val(ocaml_parent_id);
 
     promise_id_to_sample.insert({promise_id, sample});
 }
@@ -779,6 +783,8 @@ void emit_dump(vector<SiteInformation>& all_sites) {
                     file << "                      \"id\": " << span.promise_id << ",\n";
                     file << "                      \"start\": " << span.start_time_in_ns << ",\n";
                     file << "                      \"end\": " << span.end_time_in_ns << "\n";
+                    file << "                      \"create_parent_id\": " << span.create_parent_promise_id << "\n";
+                    file << "                      \"resolve_parent_id\": " << span.resolve_parent_promise_id << "\n";
                     file << "                  }\n";
                 }
                 file << "              ] \n";
@@ -825,7 +831,7 @@ void print_site_table() {
     emit_dump(all_sites);
 }
 
-extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
+extern "C" CAMLprim void lwt_on_resolve(value ocaml_id, value ocaml_parent_id) {
     timespec ts {0};
     clock_gettime(CLOCK_MONOTONIC, &ts);
     int64_t end_time_in_ns = toNanos(ts);
@@ -850,6 +856,8 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
             span.promise_id = promise_id;
             span.start_time_in_ns = sample.start_time_in_ns;
             span.end_time_in_ns = end_time_in_ns;
+            span.create_parent_promise_id = sample.parent_promise_id;
+            span.resolve_parent_promise_id = Int_val(ocaml_parent_id);
 
             bool found_end = false;
             for (auto& end_site : siteInformation.end_site_information) {
@@ -877,7 +885,7 @@ extern "C" CAMLprim void lwt_on_resolve(value ocaml_id) {
     }
 }
 
-extern "C" CAMLprim void lwt_on_cancel(value ocaml_id) {
+extern "C" CAMLprim void lwt_on_cancel(value ocaml_id, value ocaml_parent_id) {
     // do the same thing for cancel and resolve for now
-    lwt_on_resolve(ocaml_id);
+    lwt_on_resolve(ocaml_id, ocaml_parent_id);
 }

@@ -185,4 +185,7 @@ let () =
   | "lwt_sleep"::[] -> run_lwt_sleep ()
   | "lwt_join"::[] -> run_lwt_join ()
   | "lwt_choose"::[] -> run_lwt_choose ()
+  | "lwt_pick"::[] -> run_lwt_pick ()
+  | "lwt_nchoose"::[] -> run_lwt_nchoose ()
+  | "lwt_npick"::[] -> run_lwt_npick ()
   | _ -> Printf.printf "Unknown \n";

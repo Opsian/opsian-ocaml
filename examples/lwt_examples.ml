@@ -22,6 +22,15 @@ let run_joined () =
 let run_choose () =
   Lwt.choose [ op1() ; op2() ; op3() ]
 
+let run_pick () =
+  Lwt.pick [ op1() ; op2() ; op3() ]
+
+let run_nchoose () =
+  Lwt.nchoose [ op1() ; op2(); op3() ] >>= fun _ -> return ()
+
+let run_npick () =
+  Lwt.npick [ op1() ; op2(); op3() ]  >>= fun _ -> return ()
+
 let run_lwt f =
   print_endline "run_lwt";
   for i = 0 to 3 do
@@ -33,3 +42,6 @@ let run_lwt f =
 let run_lwt_sleep () = run_lwt sleep_eg
 let run_lwt_join () = run_lwt run_joined
 let run_lwt_choose () = run_lwt run_choose
+let run_lwt_pick () = run_lwt run_pick
+let run_lwt_nchoose () = run_lwt run_nchoose
+let run_lwt_npick () = run_lwt run_npick
