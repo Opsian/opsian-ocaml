@@ -146,6 +146,7 @@
   (names
     circular_queue
     collector_controller
+    prometheus_exporter
     concurrent_map
     cpudata_reader
     event_ring_reader

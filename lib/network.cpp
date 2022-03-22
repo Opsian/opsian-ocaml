@@ -1,6 +1,7 @@
 #include "network.h"
 
 #include "collector_controller.h"
+#include "prometheus_exporter.h"
 
 #include <boost/chrono.hpp>
 #include <boost/lambda/lambda.hpp>
@@ -39,7 +40,9 @@ Network::Network(
     const std::string &port,
     const std::string& customCertificateFile,
     DebugLogger &debugLogger,
-    const bool onPremHost)
+    const bool onPremHost,
+    const bool prometheusEnabled,
+    const int prometheusPort)
     : ctx(ssl::context::sslv23),
       isConnected_(false),
       isSending_(false),
@@ -47,29 +50,38 @@ Network::Network(
       host_(host),
       port_(port),
       onPremHost(onPremHost),
-      debugLogger_(debugLogger) {
+      debugLogger_(debugLogger),
+      prometheusEnabled_(prometheusEnabled) {
 
-    // Use our custom certs
-    error_code ec;
-    ctx.add_certificate_authority(asio::buffer(CERTIFICATE_1.data(), CERTIFICATE_1.size()), ec);
-    if (ec) {
-        logNetError(ec, { "Error setting certificate 1" } );
-    }
-
-    ctx.add_certificate_authority(asio::buffer(CERTIFICATE_2.data(), CERTIFICATE_2.size()), ec);
-    if (ec) {
-        logNetError(ec, { "Error setting certificate 2" } );
-    }
-
-    if (!customCertificateFile.empty()) {
-        ctx.load_verify_file(customCertificateFile, ec);
+    if (prometheusEnabled) {
+        init_prometheus(prometheusPort, debugLogger);
+    } else {
+        // Use our custom certs
+        error_code ec;
+        ctx.add_certificate_authority(asio::buffer(CERTIFICATE_1.data(), CERTIFICATE_1.size()), ec);
         if (ec) {
-            logNetError(ec, {"Error setting custom certificate file, please review the customCertificateFile option"});
+            logNetError(ec, { "Error setting certificate 1" }, debugLogger_);
+        }
+
+        ctx.add_certificate_authority(asio::buffer(CERTIFICATE_2.data(), CERTIFICATE_2.size()), ec);
+        if (ec) {
+            logNetError(ec, { "Error setting certificate 2" }, debugLogger_);
+        }
+
+        if (!customCertificateFile.empty()) {
+            ctx.load_verify_file(customCertificateFile, ec);
+            if (ec) {
+                logNetError(ec, {"Error setting custom certificate file, please review the customCertificateFile option"}, debugLogger_);
+            }
         }
     }
 }
 
-void Network::logNetError(const error_code &ec, const std::initializer_list<const char *> message) {
+void Network::logNetError(
+    const error_code &ec,
+    const std::initializer_list<const char *> message,
+    DebugLogger& debugLogger) {
+
     *ERROR_FILE << "Opsian ("
                 << GIT_STR
                 << ") @ ";
@@ -80,22 +92,22 @@ void Network::logNetError(const error_code &ec, const std::initializer_list<cons
                 << ec.message()
                 << ". " ;
 
-    debugLogger_ << "Err: "
-                 << ec.message()
-                 << ", "
-                 << ec.value()
-                 << ". " ;
+    debugLogger << "Err: "
+                << ec.message()
+                << ", "
+                << ec.value()
+                << ". " ;
 
     // Cannot use foreach, GCC 4.4
     for (auto it = message.begin(); it != message.end(); ++it) {
 	    auto elem = *it;
 
         *ERROR_FILE << elem;
-        debugLogger_ << elem;
+        debugLogger << elem;
     }
 
     *ERROR_FILE << std::endl;
-    debugLogger_ << endl;
+    debugLogger << endl;
 }
 
 void awaitCompletionOrTimeout(
@@ -150,6 +162,11 @@ bool Network::connect() {
         ios->reset();
     }
 
+    if (prometheusEnabled_) {
+        // Don't connect to a server if we're in prometheus exporter mode
+        return true;
+    }
+
     tcp::resolver::query query(host_, port_);
     tcp::resolver resolver(*ios);
     debugLogger_ << "Attempt DNS resolution" << endl;
@@ -165,7 +182,7 @@ bool Network::connect() {
     awaitCompletionOrTimeout(resolveErrorCode, resolveTimer);
 
     if (resolveErrorCode) {
-        logNetError(resolveErrorCode, {"Failed to resolve server to connect to: ", host_.c_str()});
+        logNetError(resolveErrorCode, {"Failed to resolve server to connect to: ", host_.c_str()}, debugLogger_);
         resolver.cancel();
         ios->run_one();
         close();
@@ -188,7 +205,7 @@ bool Network::connect() {
     awaitCompletionOrTimeout(connectErrorCode, connectTimer);
 
     if (connectErrorCode || !lowestLayerSock.is_open()) {
-        logNetError(connectErrorCode, {"Failed to connect to server: ", host_.c_str()});
+        logNetError(connectErrorCode, {"Failed to connect to server: ", host_.c_str()}, debugLogger_);
         close();
         return false;
     }
@@ -202,7 +219,7 @@ bool Network::connect() {
     sock_->handshake(ssl_socket::client, sslErrorCode);
 
     if (sslErrorCode || !lowestLayerSock.is_open()) {
-        logNetError(sslErrorCode, {"Failed TLS handshake with: ", host_.c_str()});
+        logNetError(sslErrorCode, {"Failed TLS handshake with: ", host_.c_str()}, debugLogger_);
         close();
         return false;
     }
@@ -249,7 +266,7 @@ bool Network::sendWithSize(
             debugLogger_ << "end awaitCompletionOrTimeout" << endl;
 
             if (ec) {
-                logNetError(ec, {"Failed to send message"});
+                logNetError(ec, {"Failed to send message"}, debugLogger_);
                 switch (ec.value()) {
                     case errc::connection_reset:
                     case errc::broken_pipe:
@@ -287,7 +304,7 @@ bool Network::poll() {
         ios->reset();
         work += ios->poll_one(ec);
         if (ec) {
-            logNetError(ec, {"Poll error"});
+            logNetError(ec, {"Poll error"}, debugLogger_);
             break;
         }
     }
@@ -315,7 +332,7 @@ void Network::close() {
             error_code ec;
             work = ios->poll(ec);
             if (ec) {
-                logNetError(ec, {"Poll error"});
+                logNetError(ec, {"Poll error"}, debugLogger_);
             }
         } while (work > 0);
 

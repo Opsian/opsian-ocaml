@@ -124,6 +124,12 @@ void Profiler::configure() {
     debugLogger_->writeLogStart();
     _DEBUG_LOGGER = debugLogger_;
 
+    if (configuration_->prometheusEnabled) {
+        *debugLogger_
+            << "Prometheus Enabled: " << configuration_->prometheusHost
+            << ":" << configuration_->prometheusPort;
+    }
+
     if (!fileName.empty()) {
         const char* fileNameStr = fileName.c_str();
         int logFileDescriptor = open(fileNameStr, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -137,7 +143,7 @@ void Profiler::configure() {
         logFile->SetCloseOnDelete(true);
     }
 
-    if (apiKey.empty()) {
+    if (!configuration_->prometheusEnabled && apiKey.empty()) {
         logError("ERROR: no api key set for the profiling agent\n");
     }
 
@@ -154,12 +160,13 @@ void Profiler::configure() {
     }
 
     network_ = new Network(
-        host, port, configuration_->customCertificateFile, *debugLogger_, configuration_->onPremHost);
+        host, port, configuration_->customCertificateFile, *debugLogger_, configuration_->onPremHost,
+        configuration_->prometheusEnabled, configuration_->prometheusPort);
 
     handler_ = new SignalHandler();
 
     const int processorCount = 1;
-    const bool isOn = !apiKey.empty() && hasHostName == 0;
+    const bool isOn = (!apiKey.empty() && hasHostName == 0) || configuration_->prometheusEnabled;
 
     buffer = new CircularQueue(configuration_->maxFramesToCapture);
 
@@ -178,7 +185,8 @@ void Profiler::configure() {
         boost::bind(&Profiler::recordAllocationTable, this),
         *handler_,
         *debugLogger_,
-        *metrics);
+        *metrics,
+        configuration_->prometheusEnabled);
 
     protocolHandler = new ProtocolHandler(*network_, *collectorController, *debugLogger_);
 

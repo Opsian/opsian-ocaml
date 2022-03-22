@@ -19,7 +19,7 @@ static char* OPTIONS;
 static ConfigurationOptions* CONFIGURATION;
 static Profiler* prof;
 
-void setup_configuration();
+bool setup_configuration();
 
 void assign_range(char* value, char* next, std::string& to) {
     size_t size = (next == 0) ? strlen(value) : (size_t) (next - value);
@@ -59,6 +59,10 @@ void parseArguments(char *options, ConfigurationOptions &configuration) {
             } else if (strstr(key, "onPremHost") == key) {
                 char onPremHostValue = *value;
                 configuration.onPremHost = (onPremHostValue == 'y' || onPremHostValue == 'Y');
+            } else if (strstr(key, "prometheusPort") == key) {
+                configuration.prometheusPort = atoi(value);
+            } else if (strstr(key, "prometheusHost") == key) {
+                assign_range(value, next, configuration.prometheusHost);
             } else if (strstr(key, "__logCorruption") == key) {
                 char logCorruptionValue = *value;
                 configuration.logCorruption = (logCorruptionValue == 'y' || logCorruptionValue == 'Y');
@@ -140,11 +144,12 @@ void parent_fork() {
 }
 
 void child_fork() {
-    setup_configuration();
-    _DEBUG_LOGGER->on_fork(CONFIGURATION->debugLogPath);
-    *_DEBUG_LOGGER << "child_fork " << getpid() << endl;
-    network_child_fork();
-    prof->on_fork();
+    if (setup_configuration()) {
+        _DEBUG_LOGGER->on_fork(CONFIGURATION->debugLogPath);
+        *_DEBUG_LOGGER << "child_fork " << getpid() << endl;
+        network_child_fork();
+        prof->on_fork();
+    }
 }
 
 // ---------------------
@@ -180,7 +185,9 @@ CAMLprim void start_opsian_native(
     }
 
     CONFIGURATION = new ConfigurationOptions();
-    setup_configuration();
+    if (!setup_configuration()) {
+        return;
+    }
 
     const std::string& errorLogPath = CONFIGURATION->errorLogPath;
     if (!errorLogPath.empty()) {
@@ -193,9 +200,12 @@ CAMLprim void start_opsian_native(
     prof->start();
 }
 
-void setup_configuration() {
+bool setup_configuration() {
     parseArguments(OPTIONS, *CONFIGURATION);
     substitute_options(CONFIGURATION);
+    CONFIGURATION->prometheusEnabled = CONFIGURATION->prometheusPort > 0;
+
+    return true;
 }
 
 void bootstrapHandle(int signum, siginfo_t *info, void *context) {

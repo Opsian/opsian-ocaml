@@ -99,6 +99,9 @@ struct ConfigurationOptions {
     std::string customCertificateFile;
     bool onPremHost;
     bool logCorruption;
+    bool prometheusEnabled;
+    std::string prometheusHost;
+    int prometheusPort;
 
     ConfigurationOptions() :
             logFilePath(""),
@@ -112,7 +115,10 @@ struct ConfigurationOptions {
             applicationVersion(""),
             customCertificateFile(""),
             onPremHost(ON_PREM_HOST_DEFAULT == "Y"),
-            logCorruption(false) {
+            logCorruption(false),
+            prometheusEnabled(false),
+            prometheusHost("0.0.0.0"),
+            prometheusPort(0) {
     }
 
     ~ConfigurationOptions() {

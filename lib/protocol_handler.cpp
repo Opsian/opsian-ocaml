@@ -19,7 +19,7 @@ void ProtocolHandler::onReadHeader(const error_code& ec) {
             logError("Disconnected\n");
         // We don't print operation cancelled, as it happens on shutdown
         } else if (ec != asio::error::operation_aborted) {
-            network_.logNetError(ec, {"onReadHeader"});
+            Network::logNetError(ec, {"onReadHeader"}, debugLogger_);
         }
     } else {
         const int bytesRead = MAX_HEADER_SIZE;
@@ -54,7 +54,7 @@ void ProtocolHandler::onReadBody(const error_code& ec) {
     if (ec) {
         // We don't print operation cancelled, as it happens on shutdown
         if (ec != asio::error::operation_aborted) {
-            network_.logNetError(ec, {"onReadBody"});
+            Network::logNetError(ec, {"onReadBody"}, debugLogger_);
         }
         attemptRead();
     } else {

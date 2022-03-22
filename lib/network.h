@@ -36,7 +36,9 @@ public:
         const std::string& port,
         const std::string& customCertificateFile,
         DebugLogger& debugLogger,
-        const bool onPremHost);
+        const bool onPremHost,
+        const bool prometheusEnabled,
+        const int prometheusPort);
 
     bool sendWithSize(
         CollectorController& controller,
@@ -52,7 +54,10 @@ public:
 
     void close();
 
-    void logNetError(const error_code &ec, const std::initializer_list<const char *> message);
+    static void logNetError(
+        const error_code &ec,
+        const std::initializer_list<const char *> message,
+        DebugLogger& debugLogger);
 
     void on_fork();
 
@@ -81,6 +86,8 @@ private:
     const bool onPremHost;
 
     DebugLogger& debugLogger_;
+
+    const bool prometheusEnabled_;
 
     DISALLOW_COPY_AND_ASSIGN(Network);
 };

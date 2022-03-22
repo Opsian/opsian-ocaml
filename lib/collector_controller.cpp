@@ -37,7 +37,8 @@ CollectorController::CollectorController(
     const std::function<void()>& recordAllocationTable,
     SignalHandler& signalHandler,
     DebugLogger& debugLogger,
-    Metrics& metrics)
+    Metrics& metrics,
+    const bool prometheusEnabled)
     : notifications(),
       backoffTimeInMs_(0),
       sendTimer_(new steady_timer(getIos())),
@@ -45,7 +46,7 @@ CollectorController::CollectorController(
       allocationTimer_(new steady_timer(getIos())),
       agentStatisticsTimer_(new steady_timer(getIos())),
       network_(network),
-      state_(DISCONNECTED),
+      state_(prometheusEnabled ? PROMETHEUS_MODE : DISCONNECTED),
       on_(on),
       apiKey_(apiKey),
       agentId_(agentId),
@@ -213,7 +214,7 @@ void CollectorController::onDisconnect() {
     debugLogger_ << "onDisconnect" << endl;
 
     state_ = DISCONNECTED;
-    
+
     sendTimer_->cancel();
     receiveTimer_->cancel();
     allocationTimer_->cancel();
@@ -379,6 +380,10 @@ const bool CollectorController::isOn() const {
 
 const bool CollectorController::isConnected() const {
     return state_ == CONNECTED;
+}
+
+const bool CollectorController::isActive() const {
+    return isConnected() || state_ == PROMETHEUS_MODE;
 }
 
 void CollectorController::onMessage() {

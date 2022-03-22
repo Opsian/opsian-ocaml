@@ -28,7 +28,7 @@ void Processor::run() {
 
         doneWork |= network_.poll();
 
-        if (collectorController_.isConnected()) {
+        if (collectorController_.isActive()) {
             int i;
             for (i = 0; i < MAX_POLLS && buffer_.pop(logWriter_); i++) {
             }

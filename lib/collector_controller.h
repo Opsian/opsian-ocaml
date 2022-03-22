@@ -51,7 +51,8 @@ public:
         const std::function<void()>& recordAllocationTable,
         SignalHandler& signalHandler,
         DebugLogger& debugLogger,
-        Metrics& metrics);
+        Metrics& metrics,
+        const bool prometheusEnabled);
 
     // on determines whether the profiler is running at all or whether
     // it has been terminated. You can be on, but disconnected for example
@@ -59,6 +60,8 @@ public:
     const bool isOn() const;
 
     const bool isConnected() const;
+
+    const bool isActive() const;
 
     virtual void onTerminate();
     
@@ -107,6 +110,9 @@ private:
 
         // need to attempt a reconnected
         DISCONNECTED = 4,
+
+        // Don't perform normal lifecycle tasks
+        PROMETHEUS_MODE = 5,
     };
 
     void onSocketConnect();
