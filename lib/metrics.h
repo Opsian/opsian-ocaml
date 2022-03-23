@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <map>
+#include <unordered_map>
 
 #include "cpudata_reader.h"
 #include "metric_types.h"
@@ -12,6 +13,7 @@
 
 #include <boost/thread/mutex.hpp>
 
+using std::unordered_map;
 using std::vector;
 using std::map;
 

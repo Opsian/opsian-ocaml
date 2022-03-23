@@ -9,9 +9,6 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <string.h>
-#include <dlfcn.h>
-#include <link.h>
-#include "deps/libbacktrace/backtrace.h"
 
 using google::protobuf::util::SerializeDelimitedToZeroCopyStream;
 using google::protobuf::internal::IsStructurallyValidUTF8;
@@ -21,39 +18,39 @@ using data::SampleTimeType;
 
 #define THREAD_NAME_BUFFER_SIZE 16
 
-// NB: if at any point we add or remove methods that are invoked in the signal handler this index
-// needs to change.
-// For some reason we can't discover the symbol of the restore trap of the libc signal handling mechanism.
-// I think https://gcc.gnu.org/bugzilla/show_bug.cgi?id=67365#c3
-// might explain what's going on, but shifting the pc by 1 didn't seem to help. This is why we're using a frame count
-#define NUMBER_OF_SIGNAL_HANDLER_FRAMES 3
+void onNewFileCallback(void *data, const uint64_t fileId, const std::string& fileName) {
+    LogWriter* logWriter = (LogWriter*) data;
+    logWriter->onNewFile(fileId, fileName);
+}
 
-struct backtrace_state* btState = NULL;
+void LogWriter::onNewFile(const uint64_t fileId, const std::string& fileName) {
+    data::ModuleInformation *moduleInfo = nameAgentEnvelope_.mutable_module_information();
+    moduleInfo->set_moduleid(fileId);
+    moduleInfo->set_filename(fileName);
+    moduleInfo->set_modulename("");
 
-// bootstrap functions for callbacks
-void _handleBtError(void* data, const char* errorMessage, int errorNumber) {
+    recordWithSize(nameAgentEnvelope_);
+}
+
+void onNewFunctionCallback(void *data, const uint64_t functionId, const std::string& functionName,
+                           const uint64_t fileId) {
+    LogWriter* logWriter = (LogWriter*) data;
+    logWriter->onNewFunction(functionId, functionName, fileId);
+}
+
+void LogWriter::onNewFunction(const uint64_t functionId, const std::string& functionName,
+                   const uint64_t fileId) {
+
+    data::MethodInformation* methodInfo = nameAgentEnvelope_.mutable_method_information();
+    methodInfo->set_methodid(functionId);
+    methodInfo->set_methodname(functionName);
+    methodInfo->set_moduleid(fileId);
+    recordWithSize(nameAgentEnvelope_);
+}
+
+void handleBtErrorCallback(void* data, const char* errorMessage, int errorNumber) {
     LogWriter* self = (LogWriter*) data;
     self->handleBtError(errorMessage, errorNumber);
-}
-
-int _handlePcInfo (
-    void *data,
-    uintptr_t pc,
-    const char *filename,
-    int lineno,
-    const char *function) {
-    LogWriter* self = (LogWriter*) data;
-    return self->handlePcInfo(pc, filename, lineno, function);
-}
-
-void _handleSyminfo (
-    void *data,
-    uintptr_t pc,
-    const char *symname,
-    uintptr_t symval,
-    uintptr_t symsize) {
-    LogWriter* self = (LogWriter*) data;
-    return self->handleSyminfo(pc, symname, symval, symsize);
 }
 
 void LogWriter::handleBtError(const char* errorMessage, int errorNumber) {
@@ -63,118 +60,6 @@ void LogWriter::handleBtError(const char* errorMessage, int errorNumber) {
     snprintf(buf, sizeof buf, format_string, errorMessage);
 
     buffer_.pushNotification(data::NotificationCategory::USER_ERROR, buf);
-}
-
-void LogWriter::initLibBackTrace() {
-    btState = backtrace_create_state(NULL, 0, _handleBtError, this);
-}
-
-// In C code we get the file name, line number and function name via this callback
-// In Ocaml code we get the line number and file name via this callback and the function name via symInfo
-int LogWriter::handlePcInfo(uintptr_t pc, const char* btFileName, int lineNumber, const char* btFunctionName) {
-    // Always copy these char* values if we want to use them beyond the duration of this callback
-
-    uint64_t fileId = 0;
-    std::string fileName;
-    if (btFileName != NULL) {
-        fileName = btFileName;
-        fileId = recordFile(fileName);
-    }
-
-    std::string functionName;
-    if (btFunctionName != NULL) {
-        functionName = btFunctionName;
-    }
-
-    // Ocaml fallback: use the function name from syminfo
-    if (functionName.empty() && !currentSymbolName_.empty()) {
-        functionName = currentSymbolName_;
-    }
-
-    // Other fallback: use dl - this can provide the binary file name for functions that don't have any debug symbols
-    if (functionName.empty() || fileId == 0) {
-        Dl_info dlInfo;
-        const int ret = dladdr((void*) pc, &dlInfo);
-        // not a typo - 0 means failure unlike everything else
-        if (ret != 0) {
-            if (functionName.empty()) {
-                if (dlInfo.dli_sname != NULL) {
-                    functionName = dlInfo.dli_sname;
-                } else if (dlInfo.dli_fname != NULL) {
-                    functionName.append("In ").append(dlInfo.dli_fname);
-                }
-            }
-
-            // Use the binary name as the file name if it's missing
-            if (fileId == 0 && dlInfo.dli_fname != NULL) {
-                fileName = dlInfo.dli_fname;
-                fileId = recordFile(fileName);
-            }
-        }
-    }
-
-    // We don't know the function name
-    if (functionName.empty()) {
-        functionName = "Unknown";
-    }
-
-    uint64_t functionId = 0;
-    auto it = knownMethodToIds_.find(functionName);
-    if (it != knownMethodToIds_.end()) {
-        functionId = it->second;
-    } else {
-        functionId = nextId_++;
-        knownMethodToIds_.insert({functionName, functionId});
-
-        data::MethodInformation* methodInfo = nameAgentEnvelope_.mutable_method_information();
-        methodInfo->set_methodid(functionId);
-        methodInfo->set_methodname(functionName);
-        methodInfo->set_moduleid(fileId);
-        recordWithSize(nameAgentEnvelope_);
-    }
-
-    // Save the address information into the cache
-    Location location = {
-        functionId,
-        lineNumber,
-        fileName,
-        functionName
-    };
-    currentLocations_->push_back(location);
-
-    debugLogger_ << "PcInfo Lookup: pc=" << pc << ",func=" << functionName << ",file=" << fileName << endl;
-
-    return 0;
-}
-
-uint64_t LogWriter::recordFile(const std::string& fileName) {
-
-    // Technically we're emitting a "module" aka class with an empty name on our protocol
-    // Need to decide if the protocol needs modifying
-    uint64_t fileId = 0;
-    auto it = knownFileToIds_.find(fileName);
-    if (it != knownFileToIds_.end()) {
-        fileId = it->second;
-    } else {
-        fileId = nextId_++;
-        knownFileToIds_.insert({fileName, fileId});
-
-        data::ModuleInformation *moduleInfo = nameAgentEnvelope_.mutable_module_information();
-        moduleInfo->set_moduleid(fileId);
-        moduleInfo->set_filename(fileName);
-        moduleInfo->set_modulename("");
-
-        recordWithSize(nameAgentEnvelope_);
-    }
-    return fileId;
-}
-
-void LogWriter::handleSyminfo(uintptr_t pc, const char* btSymbolName, uintptr_t symval, uintptr_t symsize) {
-    // Always copy char* value
-    if (btSymbolName != NULL) {
-        currentSymbolName_ = btSymbolName;
-        debugLogger_ << "SymInfo Lookup: pc=" << pc << ",sym=" << btSymbolName << endl;
-    }
 }
 
 void addFrames(vector <Location>& locations, data::StackSample* stackSample, const bool isError, DebugLogger& logger) {
@@ -221,30 +106,9 @@ void LogWriter::recordStackTrace(
 
     for (int frameIndex = NUMBER_OF_SIGNAL_HANDLER_FRAMES; frameIndex < numFrames; frameIndex++) {
         uintptr_t pc = frames[frameIndex].frame;
-
-        auto it = knownAddrToLocations_.find(pc);
-        if (it != knownAddrToLocations_.end()) {
-            // If we've seen this address before, just add the compressed stack frame
-            vector<Location>& addresses = it->second;
-            addFrames(addresses, stackSample, isError, debugLogger_);
-        } else {
-            // Looked the symbol information from dwarf
-            vector<Location> locations;
-            currentLocations_ = &locations;
-            currentSymbolName_.clear();
-
-            if (!frames[frameIndex].isForeign) {
-                // Ocaml's dwarf function names don't appear to identified using backtrace_pcinfo, not sure why
-                // So we use backtrace_syminfo to identify them. NB: this only appears to provide a single symbol
-                // in the case of inlined functions.
-                backtrace_syminfo(btState, pc, _handleSyminfo, _handleBtError, this);
-            }
-
-            backtrace_pcinfo(btState, pc, _handlePcInfo, _handleBtError, this);
-
-            knownAddrToLocations_.insert({pc, locations});
-            addFrames(locations, stackSample, isError, debugLogger_);
-        }
+        bool isForeign = frames[frameIndex].isForeign;
+        vector<Location>& locations = lookup_locations(pc, isForeign);
+        addFrames(locations, stackSample, isError, debugLogger_);
     }
 
     stackSample->set_has_max_frames(numFrames >= MAX_FRAMES);
@@ -520,7 +384,5 @@ void LogWriter::recordConstantMetricsComplete() {
 }
 
 void LogWriter::onSocketConnected() {
-    knownAddrToLocations_.clear();
-    knownMethodToIds_.clear();
-    knownFileToIds_.clear();
+    clear_symbols();
 }

@@ -54,7 +54,7 @@ Network::Network(
       prometheusEnabled_(prometheusEnabled) {
 
     if (prometheusEnabled) {
-        init_prometheus(prometheusPort, debugLogger);
+        bind_prometheus(prometheusPort, debugLogger);
     } else {
         // Use our custom certs
         error_code ec;

@@ -59,6 +59,8 @@ private:
 
     LogWriter* writer;
 
+    QueueListener* prometheusQueueListener_;
+
     CircularQueue* buffer;
 
     Processor* processor;

@@ -1,5 +1,6 @@
 #include "profiler.h"
 #include "proc_scanner.h"
+#include "prometheus_exporter.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@ Profiler::Profiler(
         debugLogger_(nullptr),
         network_(nullptr),
         writer(nullptr),
+        prometheusQueueListener_(nullptr),
         buffer(nullptr),
         processor(nullptr),
         protocolHandler(nullptr),
@@ -199,8 +201,14 @@ void Profiler::configure() {
         configuration_->maxFramesToCapture,
         configuration_->logCorruption);
 
+    QueueListener* queueListener = writer;
+    if (configuration_->prometheusEnabled) {
+        prometheusQueueListener_ = prometheus_queue_listener();
+        queueListener = prometheusQueueListener_;
+    }
+
     processor = new Processor(
-        *writer,
+        *queueListener,
         *buffer,
         *network_,
         *collectorController,

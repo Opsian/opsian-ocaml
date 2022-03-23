@@ -1,6 +1,9 @@
 #include "prometheus_exporter.h"
 #include "network.h"
+#include "symbol_table.h"
 #include <boost/asio.hpp>
+#include <unordered_map>
+#include <vector>
 
 namespace errc = boost::system::errc;
 namespace asio = boost::asio;
@@ -8,6 +11,27 @@ namespace error = asio::error;
 
 using std::string;
 using asio::ip::tcp;
+using std::unordered_map;
+
+// ----------------
+// BEGIN Common State
+// ----------------
+
+struct ProfileNode {
+    vector<Location> locations;
+    int count;
+    unordered_map<uintptr_t, ProfileNode*> pcToNode;
+};
+
+ProfileNode* root = nullptr;
+
+// ----------------
+// END Common State
+// ----------------
+
+// ----------------
+// BEGIN IO
+// ----------------
 
 const string prefix_200 =
     "HTTP/1.1 200 OK\n"
@@ -21,14 +45,13 @@ const string response_404 =
     "Content-Type: text/html; charset=utf-8\n\n"
     "<html><body><i>Not Found!</i></body></html>";
 
+const string rootPrefix = "promfiler_cpu_profile{signature=\"";
+
 const int max_length = 1024;
 
 tcp::acceptor* acceptor_ = NULL;
 tcp::socket* socket_ = NULL;
 DebugLogger* debugLogger_ = NULL;
-
-// TODO: setup the sample rate from commandline parameters not from remote server
-// TODO: hook to receive data and put it into a data structure
 
 // Performs an asynchronous read so as not to block the processor thread, but does do a single-threaded synchronous
 // write for simplicity. This isn't an issue with prometheus scraping the data out, but is a limitation to be aware of.
@@ -44,6 +67,31 @@ public:
     }
 
 private:
+    void write(const string& data) {
+        boost::system::error_code write_ec;
+        asio::write(socket_, asio::buffer(data), asio::transfer_all(), write_ec);
+        if (write_ec) {
+            Network::logNetError(write_ec, {"Prometheus write reply error"}, *debugLogger_);
+        }
+    }
+
+    // write("promfiler_cpu_profile{signature=\"(root)#parserOnHeadersComplete\"} 1\n");
+    void write_profile_node(ProfileNode* node, const string& prefix) {
+        // (root) or #parserOnHeadersComplete
+        const string nodeStr = node == root ? "(root)" : ("#" + node->locations.back().functionName);
+
+        // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete
+        const string commonStr = prefix + nodeStr;
+
+        // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete"} 1\n
+        const string line = commonStr + "\"} " + std::to_string(node->count) + '\n';
+        write(line);
+
+        for (auto& it: node->pcToNode) {
+            write_profile_node(it.second, commonStr);
+        }
+    }
+
     void do_read() {
         auto self(shared_from_this());
         socket_.async_read_some(asio::buffer(data_, max_length),
@@ -64,20 +112,14 @@ private:
                 string str(data_, length);
                 const bool is_metrics = str.find("GET /metrics HTTP/1.1") != string::npos;
 
-                boost::system::error_code write_ec;
-                #define write(data) asio::write(socket_, asio::buffer(data), asio::transfer_all(), write_ec)
                 if (is_metrics) {
                     // Example promfiler response
                     // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete"} 1
                     // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete#parserOnIncoming"} 1
                     write(prefix_200);
-                    write("promfiler_cpu_profile{signature=\"(root)#parserOnHeadersComplete\"} 1\n");
+                    write_profile_node(root, rootPrefix);
                 } else {
                     write(response_404);
-                }
-
-                if (write_ec) {
-                    Network::logNetError(ec, {"Prometheus write reply error"}, *debugLogger_);
                 }
             });
     }
@@ -95,10 +137,10 @@ void do_accept() {
            }
 
            do_accept();
-       });
+   });
 }
 
-bool init_prometheus(const int port, DebugLogger& debugLogger) {
+bool bind_prometheus(const int port, DebugLogger& debugLogger) {
     if (acceptor_ != NULL) {
         debugLogger << "failed to init_prometheus" << endl;
         return false;
@@ -114,3 +156,114 @@ bool init_prometheus(const int port, DebugLogger& debugLogger) {
 
     return true;
 }
+
+// ----------------
+// END IO
+// ----------------
+
+// --------------------
+// BEGIN Queue Listener
+// --------------------
+
+void handleBtError(void* data, const char* errorMessage, int errorNumber) {
+    logError("libbacktrace error: %s %n", errorMessage, errorNumber);
+}
+
+class PrometheusQueueListener : public QueueListener {
+public:
+    explicit PrometheusQueueListener() {
+        init_symbols(handleBtError, nullptr, nullptr, debugLogger_, nullptr);
+    }
+
+    // override
+    virtual void
+    recordStackTrace(
+        const timespec &ts,
+        const CallTrace &trace,
+        int signum,
+        int threadState,
+        uint64_t time_tsc) {
+
+        int numFrames = trace.num_frames;
+        const bool isError = numFrames < 0;
+        CallFrame* frames = trace.frames;
+        // We print out an error traces for the missing frames
+        if (isError) {
+            numFrames = -1 * numFrames;
+            logError("Broken stack trace error=%n", numFrames);
+            return;
+        }
+
+        ProfileNode* node = root;
+        for (int frameIndex = NUMBER_OF_SIGNAL_HANDLER_FRAMES; frameIndex < numFrames; frameIndex++) {
+            const uintptr_t pc = frames[frameIndex].frame;
+
+            auto it = node->pcToNode.find(pc);
+            if (it != node->pcToNode.end()) {
+                node = it->second;
+            } else {
+                const bool isForeign = frames[frameIndex].isForeign;
+
+                ProfileNode* newNode = new ProfileNode();
+                newNode->locations = lookup_locations(pc, isForeign);
+                newNode->count = 0;
+
+                node->pcToNode.insert({pc, newNode});
+                node = newNode;
+            }
+        }
+        node->count++;
+    }
+
+    // override
+    virtual void recordThread(
+        int threadId,
+        const string& name) {
+        // Deliberately Unused
+    }
+
+    // override
+    virtual void
+    recordAllocation(uintptr_t allocationSize, bool outsideTlab, VMSymbol* symbol) {
+        // Deliberately Unused
+    }
+
+    // override
+    virtual void
+    recordNotification(data::NotificationCategory category, const string &payload, int value) {
+        // Deliberately Unused
+    }
+
+    // override
+    virtual void recordMetricInformation(const MetricInformation& metricInformation) {
+        // Deliberately Unused
+    }
+
+    // override
+    virtual void recordMetricSamples(const long time_epoch_millis, const vector<MetricSample>& metricSamples) {
+        // Deliberately Unused
+    }
+
+    // override
+    virtual void recordAllocationTable() {
+        // Deliberately Unused
+    }
+
+    // override
+    virtual void recordConstantMetricsComplete() {
+        // Deliberately Unused
+    }
+
+    DISALLOW_COPY_AND_ASSIGN(PrometheusQueueListener);
+};
+
+QueueListener* prometheus_queue_listener() {
+    root = new ProfileNode();
+    root->count = 0;
+
+    return new PrometheusQueueListener();
+}
+
+// --------------------
+// END Queue Listener
+// --------------------

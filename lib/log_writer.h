@@ -1,27 +1,23 @@
 #ifndef LOG_WRITER_H
 #define LOG_WRITER_H
 
-#include <unordered_set>
-#include <unordered_map>
-#include <vector>
 #include <cstring>
 
 #include "circular_queue.h"
 #include "network.h"
+#include "symbol_table.h"
 
 #include "data.pb.h"
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/io/coded_stream.h>
-
+#include <unordered_map>
 #include <boost/functional/hash.hpp>
 #include <boost/asio.hpp>
 
-using std::unordered_set;
-using std::unordered_map;
-using std::vector;
 using std::pair;
 using std::make_pair;
+using std::unordered_map;
 
 using google::protobuf::io::CodedOutputStream;
 using google::protobuf::io::ZeroCopyOutputStream;
@@ -34,13 +30,6 @@ struct ThreadInformation {
     string name;
 };
 
-struct Location {
-    uint64_t methodId;
-    int lineNumber;
-    std::string& fileName;
-    std::string& functionName;
-};
-
 struct AllocationRow {
     uint numberofAllocations;
     uintptr_t totalBytesAllocated;
@@ -51,6 +40,11 @@ struct AllocationRow {
 
 typedef pair<VMSymbol*, bool> AllocationKey;
 typedef unordered_map<AllocationKey, AllocationRow, boost::hash<AllocationKey>> AllocationsTable;
+
+void onNewFileCallback(void *data, const uint64_t fileId, const std::string& fileName);
+void onNewFunctionCallback(void *data, const uint64_t functionId, const std::string& functionName,
+    const uint64_t fileId);
+void handleBtErrorCallback(void* data, const char* errorMessage, int errorNumber);
 
 class LogWriter : public QueueListener {
 
@@ -68,12 +62,6 @@ public:
               network_(network),
               controller_(controller),
               threadIdToInformation(),
-              nextId_(1),
-              knownAddrToLocations_(),
-              knownMethodToIds_(),
-              knownFileToIds_(),
-              currentLocations_(nullptr),
-              currentSymbolName_(),
               allocationsTable(),
               frameAgentEnvelope_(),
               nameAgentEnvelope_(),
@@ -82,8 +70,13 @@ public:
               logCorruption_(logCorruption) {
         GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-        initLibBackTrace();
+        init_symbols(handleBtErrorCallback, onNewFileCallback, onNewFunctionCallback, &debugLogger, this);
     }
+
+    void onNewFile(const uint64_t fileId, const std::string& fileName);
+
+    void onNewFunction(const uint64_t functionId, const std::string& functionName,
+                       const uint64_t fileId);
 
     // override
     virtual void
@@ -123,10 +116,6 @@ public:
 
     void handleBtError(const char* errorMessage, int errorNumber);
 
-    int handlePcInfo (uintptr_t pc, const char *filename, int lineno, const char *function);
-
-    void handleSyminfo (uintptr_t pc, const char *symname, uintptr_t symval, uintptr_t symsize);
-
 private:
 
     void threadName(pthread_t threadId, data::StackSample* stackSample);
@@ -140,17 +129,6 @@ private:
     CollectorController& controller_;
 
     unordered_map<int, ThreadInformation> threadIdToInformation;
-
-    // Symbol information cache
-    // Each individual pc might actually correspond to multiple locations due to inlining
-    uint64_t nextId_;
-    unordered_map<uintptr_t, vector<Location>> knownAddrToLocations_;
-    unordered_map<std::string, uint64_t> knownMethodToIds_;
-    unordered_map<std::string, uint64_t> knownFileToIds_;
-
-    // used in lib backtrace callbacks
-    vector<Location>* currentLocations_;
-    std::string currentSymbolName_;
 
     AllocationsTable allocationsTable;
 
@@ -169,13 +147,9 @@ private:
 
     void recordWithSize(data::AgentEnvelope& envelope);
 
-    void initLibBackTrace();
-
     void setSampleTime(const timespec &ts, data::StackSample *stackSample) const;
 
     void setSampleType(int signum, data::StackSample *stackSample) const;
-
-    uint64_t recordFile(const std::string& fileName);
 
     DISALLOW_COPY_AND_ASSIGN(LogWriter);
 };

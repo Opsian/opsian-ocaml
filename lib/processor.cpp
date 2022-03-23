@@ -30,7 +30,7 @@ void Processor::run() {
 
         if (collectorController_.isActive()) {
             int i;
-            for (i = 0; i < MAX_POLLS && buffer_.pop(logWriter_); i++) {
+            for (i = 0; i < MAX_POLLS && buffer_.pop(queueListener_); i++) {
             }
             doneWork |= (i > 0);
         }

@@ -1,7 +1,6 @@
 #ifndef PROCESSOR_H
 #define PROCESSOR_H
 
-#include "log_writer.h"
 #include "signal_handler.h"
 #include "network.h"
 #include "collector_controller.h"
@@ -13,13 +12,13 @@ class Processor {
 
 public:
     explicit Processor(
-        LogWriter& logWriter,
+        QueueListener& queueListener,
         CircularQueue& buffer,
         Network& network,
         CollectorController& collectorController,
         DebugLogger& debugLogger)
         : thread(0),
-          logWriter_(logWriter),
+          queueListener_(queueListener),
           buffer_(buffer),
           network_(network),
           collectorController_(collectorController),
@@ -36,7 +35,7 @@ private:
 
     pthread_t thread;
 
-    LogWriter& logWriter_;
+    QueueListener& queueListener_;
 
     CircularQueue& buffer_;
 

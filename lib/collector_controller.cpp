@@ -21,6 +21,8 @@ static const uint32_t RANDOMISATION_RANGE_IN_MS = 1000;
 static const double BACKOFF_FACTOR = 1.5;
 static const int DONT_CHANGE_SAMPLE_RATE = 0;
 #define DEFAULT_METRICS_SAMPLE_RATE 1000
+#define DEFAULT_PROMETHEUS_PROCESS_SAMPLE_RATE 100
+#define DEFAULT_PROMETHEUS_ELAPSED_SAMPLE_RATE 100
 
 std::atomic<uint32_t> CollectorController::threadIdDenials(0);
 
@@ -76,19 +78,11 @@ void CollectorController::onTerminate() {
     onMessage();
 }
 
-void CollectorController::onSampleRate(
+void CollectorController::startProfiling(
     uint64_t processTimeStackSampleRateMillis,
     uint64_t elapsedTimeStackSampleRateMillis,
     bool switchProcessTimeProfilingOn,
-    bool switchElapsedTimeProfilingOn,
-    bool threadStateOn,
-    bool switchMemoryProfilingOn,
-    uint64_t memoryProfilingPushRateMillis,
-    bool switchMemoryProfilingStacktraceOn,
-    uint32_t memoryProfilingStackSampleRateSamples,
-    bool switchMetricsOn,
-    uint64_t metricsSampleRateMillis,
-    vector<string>& disabledMetricPrefixes) {
+    bool switchElapsedTimeProfilingOn) {
 
     if (switchProcessTimeProfilingOn) {
         if (processTimeStackSampleRateMillis != DONT_CHANGE_SAMPLE_RATE)
@@ -109,6 +103,24 @@ void CollectorController::onSampleRate(
     } else if (is_scanning_threads()) {
         stop_scanning_threads();
     }
+}
+
+void CollectorController::onSampleRate(
+    uint64_t processTimeStackSampleRateMillis,
+    uint64_t elapsedTimeStackSampleRateMillis,
+    bool switchProcessTimeProfilingOn,
+    bool switchElapsedTimeProfilingOn,
+    bool threadStateOn,
+    bool switchMemoryProfilingOn,
+    uint64_t memoryProfilingPushRateMillis,
+    bool switchMemoryProfilingStacktraceOn,
+    uint32_t memoryProfilingStackSampleRateSamples,
+    bool switchMetricsOn,
+    uint64_t metricsSampleRateMillis,
+    vector<string>& disabledMetricPrefixes) {
+
+    startProfiling(processTimeStackSampleRateMillis, elapsedTimeStackSampleRateMillis, switchProcessTimeProfilingOn,
+        switchElapsedTimeProfilingOn);
 
     if (switchMetricsOn) {
         if (metricsSampleRateMillis != DONT_CHANGE_SAMPLE_RATE) {
@@ -152,6 +164,8 @@ void CollectorController::onHeartbeat() {
 void CollectorController::onStart() {
     if (isOn() && state_ == SOCKET_CONNECTED) {
         onSocketConnect();
+    } else if (state_ == PROMETHEUS_MODE) {
+        startProfiling(DEFAULT_PROMETHEUS_PROCESS_SAMPLE_RATE, DEFAULT_PROMETHEUS_ELAPSED_SAMPLE_RATE, true, true);
     }
 }
 

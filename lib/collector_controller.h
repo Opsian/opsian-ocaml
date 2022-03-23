@@ -64,6 +64,12 @@ public:
     const bool isActive() const;
 
     virtual void onTerminate();
+
+    void startProfiling(
+        uint64_t processTimeStackSampleRateMillis,
+        uint64_t elapsedTimeStackSampleRateMillis,
+        bool switchProcessTimeProfilingOn,
+        bool switchElapsedTimeProfilingOn);
     
     virtual void onSampleRate(uint64_t processTimeStackSampleRateMillis, uint64_t elapsedTimeStackSampleRateMillis,
                               bool switchProcessTimeProfilingOn, bool switchElapsedTimeProfilingOn, bool threadStateOn,
