@@ -75,17 +75,29 @@ private:
         }
     }
 
-    // write("promfiler_cpu_profile{signature=\"(root)#parserOnHeadersComplete\"} 1\n");
+    // Eg: promfiler_cpu_profile{signature=\"(root)#parserOnHeadersComplete\"} 1;
     void write_profile_node(ProfileNode* node, const string& prefix) {
+
+        vector<string> functions;
+        if (node == root) {
+            functions.emplace_back("(root)");
+        } else {
+            for (auto& location : node->locations) {
+                functions.emplace_back("#" + location.functionName);
+            }
+        }
+
+        string commonStr = prefix;
         // (root) or #parserOnHeadersComplete
-        const string nodeStr = node == root ? "(root)" : ("#" + node->locations.back().functionName);
+        for (string& functionName : functions) {
+            // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete
+            commonStr += functionName;
 
-        // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete
-        const string commonStr = prefix + nodeStr;
+            // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete"} 1\n
+            const string line = commonStr + "\"} " + std::to_string(node->count) + '\n';
 
-        // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete"} 1\n
-        const string line = commonStr + "\"} " + std::to_string(node->count) + '\n';
-        write(line);
+            write(line);
+        }
 
         for (auto& it: node->pcToNode) {
             write_profile_node(it.second, commonStr);
@@ -113,9 +125,6 @@ private:
                 const bool is_metrics = str.find("GET /metrics HTTP/1.1") != string::npos;
 
                 if (is_metrics) {
-                    // Example promfiler response
-                    // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete"} 1
-                    // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete#parserOnIncoming"} 1
                     write(prefix_200);
                     write_profile_node(root, rootPrefix);
                 } else {
