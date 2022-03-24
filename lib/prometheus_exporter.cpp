@@ -14,17 +14,32 @@ using std::string;
 using asio::ip::tcp;
 using std::unordered_map;
 
-// ----------------
+// ------------------
 // BEGIN Common State
-// ----------------
+// ------------------
 
 struct ProfileNode {
     vector<Location> locations;
     int count;
     unordered_map<uintptr_t, ProfileNode*> pcToNode;
+    // true if we need to walk the subtree when printing, ie when there's >= 1 child with a count >= 1
+    bool seenInPhase;
 };
 
 ProfileNode* root = nullptr;
+
+void end_phase_node(ProfileNode* node) {
+    if (node == nullptr) {
+        return;
+    }
+
+    node->seenInPhase = false;
+    node->count = 0;
+
+    for (auto& it: node->pcToNode) {
+        end_phase_node(it.second);
+    }
+}
 
 // ----------------
 // END Common State
@@ -78,6 +93,9 @@ private:
 
     // Eg: promfiler_cpu_profile{signature=\"(root)#parserOnHeadersComplete\"} 1;
     void write_profile_node(ProfileNode* node, const string& prefix) {
+        if (!node->seenInPhase) {
+            return;
+        }
 
         vector<string> functions;
         if (node == root) {
@@ -128,6 +146,8 @@ private:
                 if (is_metrics) {
                     write(prefix_200);
                     write_profile_node(root, rootPrefix);
+                    end_phase_node(root);
+                    root->seenInPhase = true;
                 } else {
                     write(response_404);
                 }
@@ -226,6 +246,7 @@ public:
                 node->pcToNode.insert({pc, newNode});
                 node = newNode;
             }
+            node->seenInPhase = true;
         }
         node->count++;
     }
