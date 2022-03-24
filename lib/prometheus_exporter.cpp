@@ -2,6 +2,7 @@
 #include "network.h"
 #include "symbol_table.h"
 #include <boost/asio.hpp>
+#include <boost/system/system_error.hpp>
 #include <unordered_map>
 #include <vector>
 
@@ -157,13 +158,18 @@ bool bind_prometheus(const int port, DebugLogger& debugLogger) {
 
     debugLogger_ = &debugLogger;
     asio::io_service &ios = getIos();
-    acceptor_ = new tcp::acceptor(ios, tcp::endpoint(tcp::v4(), port));
-    socket_ = new tcp::socket(ios);
-    do_accept();
+    try {
+        acceptor_ = new tcp::acceptor(ios, tcp::endpoint(tcp::v4(), port));
+        socket_ = new tcp::socket(ios);
+        do_accept();
 
-    debugLogger << "init_prometheus on " << port << endl;
+        debugLogger << "init_prometheus on " << port << endl;
 
-    return true;
+        return true;
+    } catch (boost::system::system_error& e) {
+        Network::logNetError(e.code(), { "Prometheus bind error" }, debugLogger);
+        return false;
+    }
 }
 
 // ----------------
