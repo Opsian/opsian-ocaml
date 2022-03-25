@@ -163,7 +163,7 @@ void Profiler::configure() {
 
     network_ = new Network(
         host, port, configuration_->customCertificateFile, *debugLogger_, configuration_->onPremHost,
-        configuration_->prometheusEnabled, configuration_->prometheusPort);
+        configuration_->prometheusEnabled, configuration_->prometheusPort, configuration_->prometheusHost);
 
     handler_ = new SignalHandler();
 

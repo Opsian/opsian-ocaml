@@ -170,7 +170,7 @@ void do_accept() {
    });
 }
 
-bool bind_prometheus(const int port, DebugLogger& debugLogger) {
+bool bind_prometheus(const int port, const std::string& host, DebugLogger& debugLogger) {
     if (acceptor_ != NULL) {
         debugLogger << "failed to init_prometheus" << endl;
         return false;
@@ -179,11 +179,23 @@ bool bind_prometheus(const int port, DebugLogger& debugLogger) {
     debugLogger_ = &debugLogger;
     asio::io_service &ios = getIos();
     try {
-        acceptor_ = new tcp::acceptor(ios, tcp::endpoint(tcp::v4(), port));
+        tcp::endpoint endpoint;
+        if (host.empty()) {
+            endpoint = tcp::endpoint(tcp::v4(), port);
+        } else {
+            boost::system::error_code ec;
+            if (ec.value() == 0) {
+                endpoint = tcp::endpoint(asio::ip::address::from_string(host, ec), port);
+            } else {
+                Network::logNetError(ec, { "Prometheus IP address error" }, debugLogger);
+                return false;
+            }
+        }
+        acceptor_ = new tcp::acceptor(ios, endpoint);
         socket_ = new tcp::socket(ios);
         do_accept();
 
-        debugLogger << "init_prometheus on " << port << endl;
+        debugLogger << "init_prometheus on " << host << ":" << port << endl;
 
         return true;
     } catch (boost::system::system_error& e) {

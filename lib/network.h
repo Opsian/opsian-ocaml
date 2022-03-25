@@ -38,7 +38,8 @@ public:
         DebugLogger& debugLogger,
         const bool onPremHost,
         const bool prometheusEnabled,
-        const int prometheusPort);
+        const int prometheusPort,
+        const std::string& prometheusHost);
 
     bool sendWithSize(
         CollectorController& controller,

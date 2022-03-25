@@ -42,7 +42,8 @@ Network::Network(
     DebugLogger &debugLogger,
     const bool onPremHost,
     const bool prometheusEnabled,
-    const int prometheusPort)
+    const int prometheusPort,
+    const std::string& prometheusHost)
     : ctx(ssl::context::sslv23),
       isConnected_(false),
       isSending_(false),
@@ -54,7 +55,7 @@ Network::Network(
       prometheusEnabled_(prometheusEnabled) {
 
     if (prometheusEnabled) {
-        bind_prometheus(prometheusPort, debugLogger);
+        bind_prometheus(prometheusPort, prometheusHost, debugLogger);
     } else {
         // Use our custom certs
         error_code ec;
