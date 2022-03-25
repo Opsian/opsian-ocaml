@@ -139,6 +139,9 @@ int handlePcInfo (
     return 0;
 }
 
+const char* DUNE_PREFIX = "camlDune__exe__";
+const size_t DUNE_PREFIX_LEN = 15;
+
 void handleSyminfo (
     void *data,
     uintptr_t pc,
@@ -148,8 +151,15 @@ void handleSyminfo (
 
     // Always copy char* value
     if (btSymbolName != NULL) {
-        currentSymbolName_ = btSymbolName;
-        *debugLoggerSt_ << "SymInfo Lookup: pc=" << pc << ",sym=" << btSymbolName << endl;
+        // Prettify the function name
+        if (strncmp(btSymbolName, DUNE_PREFIX, DUNE_PREFIX_LEN) == 0) {
+            currentSymbolName_ = btSymbolName + DUNE_PREFIX_LEN;
+            substitute_option(currentSymbolName_, "__", ".");
+        } else {
+            currentSymbolName_ = btSymbolName;
+        }
+
+        *debugLoggerSt_ << "SymInfo Lookup: pc=" << pc << ",sym=" << currentSymbolName_ << endl;
     }
 }
 

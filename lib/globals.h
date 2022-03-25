@@ -30,6 +30,11 @@ long toMillis(const timespec& timestamp);
 
 int getTid();
 
+void substitute_option(
+    std::string& value,
+    const std::string& search,
+    const std::string& replace);
+
 const int MAX_HEADER_SIZE = 5;
 
 class Profiler;
