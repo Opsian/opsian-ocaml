@@ -1,7 +1,6 @@
 #include "network.h"
 
 #include "collector_controller.h"
-#include "prometheus_exporter.h"
 
 #include <boost/chrono.hpp>
 #include <boost/lambda/lambda.hpp>
@@ -41,9 +40,7 @@ Network::Network(
     const std::string& customCertificateFile,
     DebugLogger &debugLogger,
     const bool onPremHost,
-    const bool prometheusEnabled,
-    const int prometheusPort,
-    const std::string& prometheusHost)
+    const bool prometheusEnabled)
     : ctx(ssl::context::sslv23),
       isConnected_(false),
       isSending_(false),
@@ -54,9 +51,7 @@ Network::Network(
       debugLogger_(debugLogger),
       prometheusEnabled_(prometheusEnabled) {
 
-    if (prometheusEnabled) {
-        bind_prometheus(prometheusPort, prometheusHost, debugLogger);
-    } else {
+    if (!prometheusEnabled) {
         // Use our custom certs
         error_code ec;
         ctx.add_certificate_authority(asio::buffer(CERTIFICATE_1.data(), CERTIFICATE_1.size()), ec);

@@ -7,6 +7,6 @@
 
 QueueListener* prometheus_queue_listener();
 
-bool bind_prometheus(const int port, const std::string& host, DebugLogger& debugLogger);
+bool bind_prometheus(const ConfigurationOptions& configuration, DebugLogger& debugLogger);
 
 #endif //OPSIAN_OCAML_PROMETHEUS_EXPORTER_H

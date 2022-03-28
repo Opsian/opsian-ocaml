@@ -184,11 +184,14 @@ void do_accept() {
    });
 }
 
-bool bind_prometheus(const int port, const std::string& host, DebugLogger& debugLogger) {
+bool bind_prometheus(const ConfigurationOptions& configuration, DebugLogger& debugLogger) {
     if (acceptor_ != NULL) {
         debugLogger << "failed to init_prometheus" << endl;
         return false;
     }
+
+    const int port = configuration.prometheusPort;
+    const std::string& host = configuration.prometheusHost;
 
     debugLogger_ = &debugLogger;
     asio::io_service &ios = getIos();

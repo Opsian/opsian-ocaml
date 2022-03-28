@@ -37,9 +37,7 @@ public:
         const std::string& customCertificateFile,
         DebugLogger& debugLogger,
         const bool onPremHost,
-        const bool prometheusEnabled,
-        const int prometheusPort,
-        const std::string& prometheusHost);
+        const bool prometheusEnabled);
 
     bool sendWithSize(
         CollectorController& controller,
