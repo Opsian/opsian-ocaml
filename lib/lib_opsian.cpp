@@ -63,6 +63,8 @@ void parseArguments(char *options, ConfigurationOptions &configuration) {
                 configuration.prometheusPort = atoi(value);
             } else if (strstr(key, "prometheusHost") == key) {
                 assign_range(value, next, configuration.prometheusHost);
+            } else if (strstr(key, "prometheusSegment") == key) {
+                assign_range(value, next, configuration.prometheusSegment);
             } else if (strstr(key, "__logCorruption") == key) {
                 char logCorruptionValue = *value;
                 configuration.logCorruption = (logCorruptionValue == 'y' || logCorruptionValue == 'Y');
@@ -99,6 +101,7 @@ void substitutePath(ConfigurationOptions* configuration, const char* name,
     substitute_option(configuration->debugLogPath, substitution_variable, substitution_value);
     substitute_option(configuration->customCertificateFile, substitution_variable, substitution_value);
     substitute_option(configuration->agentId, substitution_variable, substitution_value);
+    substitute_option(configuration->prometheusSegment, substitution_variable, substitution_value);
 }
 
 /*

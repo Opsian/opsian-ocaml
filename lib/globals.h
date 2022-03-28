@@ -107,6 +107,7 @@ struct ConfigurationOptions {
     bool prometheusEnabled;
     std::string prometheusHost;
     int prometheusPort;
+    std::string prometheusSegment;
 
     ConfigurationOptions() :
             logFilePath(""),
@@ -123,7 +124,8 @@ struct ConfigurationOptions {
             logCorruption(false),
             prometheusEnabled(false),
             prometheusHost(""),
-            prometheusPort(0) {
+            prometheusPort(0),
+            prometheusSegment("") {
     }
 
     ~ConfigurationOptions() {

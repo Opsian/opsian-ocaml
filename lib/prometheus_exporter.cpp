@@ -65,16 +65,19 @@ const string prefix_200 =
     "HTTP/1.1 200 OK\n"
     "Content-Type: text/html; charset=utf-8\n\n"
     "# HELP promfiler_cpu_profile CPU stack trace samples\n"
-    "# TYPE promfiler_cpu_profile gauge\n"
-    "promfiler_cpu_profile{signature=\"(root)\"} 0\n";
+    "# TYPE promfiler_cpu_profile gauge\n";
 
 const string response_404 =
     "HTTP/1.1 404 Not Found\n"
     "Content-Type: text/html; charset=utf-8\n\n"
     "<html><body><i>Not Found!</i></body></html>";
 
-const string rootCpuPrefix = "promfiler_cpu_profile{type=\"cpu\",signature=\"";
-const string rootWallclockPrefix = "promfiler_cpu_profile{type=\"wallclock\",signature=\"";
+
+const string prefix_1 = "promfiler_cpu_profile{type=\"";
+const string prefix_2 = "\",signature=\"";
+
+string rootCpuPrefix;
+string rootWallclockPrefix;
 
 const int max_length = 1024;
 
@@ -189,6 +192,15 @@ bool bind_prometheus(const ConfigurationOptions& configuration, DebugLogger& deb
         debugLogger << "failed to init_prometheus" << endl;
         return false;
     }
+
+    string prefixEnd = prefix_2;
+    const string& segment = configuration.prometheusSegment;
+    if (!segment.empty()) {
+        prefixEnd = "\",segment=\"" + segment + prefixEnd;
+    }
+
+    rootCpuPrefix = prefix_1 + "cpu" + prefixEnd;
+    rootWallclockPrefix = prefix_1 + "wallclock" + prefixEnd;
 
     const int port = configuration.prometheusPort;
     const std::string& host = configuration.prometheusHost;
