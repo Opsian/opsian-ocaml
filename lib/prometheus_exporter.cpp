@@ -257,7 +257,7 @@ public:
         }
 
         ProfileNode* node = root;
-        for (int frameIndex = NUMBER_OF_SIGNAL_HANDLER_FRAMES; frameIndex < numFrames; frameIndex++) {
+        for (int frameIndex = numFrames - 1; frameIndex >= NUMBER_OF_SIGNAL_HANDLER_FRAMES; frameIndex--) {
             const uintptr_t pc = frames[frameIndex].frame;
 
             auto it = node->pcToNode.find(pc);
