@@ -20,10 +20,23 @@ using std::unordered_map;
 
 struct ProfileNode {
     vector<Location> locations;
-    int count;
     unordered_map<uintptr_t, ProfileNode*> pcToNode;
     // true if we need to walk the subtree when printing, ie when there's >= 1 child with a count >= 1
     bool seenInPhase;
+
+    int& count(const bool isCpuSample) {
+        return isCpuSample ? cpuCount : wallclockCount;
+    }
+
+    void reset() {
+        seenInPhase = false;
+        cpuCount = 0;
+        wallclockCount = 0;
+    }
+
+private:
+    int cpuCount;
+    int wallclockCount;
 };
 
 ProfileNode* root = nullptr;
@@ -33,8 +46,7 @@ void end_phase_node(ProfileNode* node) {
         return;
     }
 
-    node->seenInPhase = false;
-    node->count = 0;
+    node->reset();
 
     for (auto& it: node->pcToNode) {
         end_phase_node(it.second);
@@ -61,7 +73,8 @@ const string response_404 =
     "Content-Type: text/html; charset=utf-8\n\n"
     "<html><body><i>Not Found!</i></body></html>";
 
-const string rootPrefix = "promfiler_cpu_profile{signature=\"";
+const string rootCpuPrefix = "promfiler_cpu_profile{type=\"cpu\",signature=\"";
+const string rootWallclockPrefix = "promfiler_cpu_profile{type=\"wallclock\",signature=\"";
 
 const int max_length = 1024;
 
@@ -92,7 +105,7 @@ private:
     }
 
     // Eg: promfiler_cpu_profile{signature=\"(root)#parserOnHeadersComplete\"} 1;
-    void write_profile_node(ProfileNode* node, const string& prefix) {
+    void write_profile_node(ProfileNode* node, const string& prefix, const bool isCpuSample) {
         if (!node->seenInPhase) {
             return;
         }
@@ -113,13 +126,13 @@ private:
             commonStr += functionName;
 
             // promfiler_cpu_profile{signature="(root)#parserOnHeadersComplete"} 1\n
-            const string line = commonStr + "\"} " + std::to_string(node->count) + '\n';
+            const string line = commonStr + "\"} " + std::to_string(node->count(isCpuSample)) + '\n';
 
             write(line);
         }
 
         for (auto& it: node->pcToNode) {
-            write_profile_node(it.second, commonStr);
+            write_profile_node(it.second, commonStr, isCpuSample);
         }
     }
 
@@ -145,7 +158,8 @@ private:
 
                 if (is_metrics) {
                     write(prefix_200);
-                    write_profile_node(root, rootPrefix);
+                    write_profile_node(root, rootCpuPrefix, true);
+                    write_profile_node(root, rootWallclockPrefix, false);
                     end_phase_node(root);
                     root->seenInPhase = true;
                 } else {
@@ -231,6 +245,7 @@ public:
         int threadState,
         uint64_t time_tsc) {
 
+        const bool isCpuSample = signum == SIGPROF;
         int numFrames = trace.num_frames;
         const bool isError = numFrames < 0;
         CallFrame* frames = trace.frames;
@@ -253,14 +268,14 @@ public:
 
                 ProfileNode* newNode = new ProfileNode();
                 newNode->locations = lookup_locations(pc, isForeign);
-                newNode->count = 0;
+                newNode->count(isCpuSample) = 0;
 
                 node->pcToNode.insert({pc, newNode});
                 node = newNode;
             }
             node->seenInPhase = true;
         }
-        node->count++;
+        node->count(isCpuSample)++;
     }
 
     // override
@@ -307,7 +322,7 @@ public:
 
 QueueListener* prometheus_queue_listener() {
     root = new ProfileNode();
-    root->count = 0;
+    root->reset();
 
     return new PrometheusQueueListener();
 }
