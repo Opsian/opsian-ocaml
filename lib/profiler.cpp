@@ -129,7 +129,8 @@ void Profiler::configure() {
     if (configuration_->prometheusEnabled) {
         *debugLogger_
             << "Prometheus Enabled: " << configuration_->prometheusHost
-            << ":" << configuration_->prometheusPort;
+            << ":" << configuration_->prometheusPort
+            << endl;
     }
 
     if (!fileName.empty()) {

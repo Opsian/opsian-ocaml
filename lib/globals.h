@@ -122,7 +122,7 @@ struct ConfigurationOptions {
             onPremHost(ON_PREM_HOST_DEFAULT == "Y"),
             logCorruption(false),
             prometheusEnabled(false),
-            prometheusHost("0.0.0.0"),
+            prometheusHost(""),
             prometheusPort(0) {
     }
 
