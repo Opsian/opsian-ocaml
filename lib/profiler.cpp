@@ -193,7 +193,7 @@ void Profiler::configure() {
         *handler_,
         *debugLogger_,
         *metrics,
-        configuration_->prometheusEnabled);
+        *configuration_);
 
     protocolHandler = new ProtocolHandler(*network_, *collectorController, *debugLogger_);
 

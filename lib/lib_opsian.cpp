@@ -65,6 +65,10 @@ void parseArguments(char *options, ConfigurationOptions &configuration) {
                 assign_range(value, next, configuration.prometheusHost);
             } else if (strstr(key, "prometheusSegment") == key) {
                 assign_range(value, next, configuration.prometheusSegment);
+            } else if (strstr(key, "prometheusProcessSampleRate") == key) {
+                configuration.prometheusProcessSampleRate = atoi(value);
+            } else if (strstr(key, "prometheusElapsedSampleRate") == key) {
+                configuration.prometheusElapsedSampleRate = atoi(value);
             } else if (strstr(key, "__logCorruption") == key) {
                 char logCorruptionValue = *value;
                 configuration.logCorruption = (logCorruptionValue == 'y' || logCorruptionValue == 'Y');

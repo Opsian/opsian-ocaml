@@ -21,8 +21,6 @@ static const uint32_t RANDOMISATION_RANGE_IN_MS = 1000;
 static const double BACKOFF_FACTOR = 1.5;
 static const int DONT_CHANGE_SAMPLE_RATE = 0;
 #define DEFAULT_METRICS_SAMPLE_RATE 1000
-#define DEFAULT_PROMETHEUS_PROCESS_SAMPLE_RATE 100
-#define DEFAULT_PROMETHEUS_ELAPSED_SAMPLE_RATE 100
 
 std::atomic<uint32_t> CollectorController::threadIdDenials(0);
 
@@ -40,7 +38,7 @@ CollectorController::CollectorController(
     SignalHandler& signalHandler,
     DebugLogger& debugLogger,
     Metrics& metrics,
-    const bool prometheusEnabled)
+    const ConfigurationOptions& configurationOptions)
     : notifications(),
       backoffTimeInMs_(0),
       sendTimer_(new steady_timer(getIos())),
@@ -48,7 +46,7 @@ CollectorController::CollectorController(
       allocationTimer_(new steady_timer(getIos())),
       agentStatisticsTimer_(new steady_timer(getIos())),
       network_(network),
-      state_(prometheusEnabled ? PROMETHEUS_MODE : DISCONNECTED),
+      state_(configurationOptions.prometheusEnabled ? PROMETHEUS_MODE : DISCONNECTED),
       on_(on),
       apiKey_(apiKey),
       agentId_(agentId),
@@ -67,7 +65,8 @@ CollectorController::CollectorController(
       threadStateOn_(false),
       memoryProfilingOn_(false),
       metricsOn_(false),
-      metricsSampleRateMillis_(DEFAULT_METRICS_SAMPLE_RATE) {
+      metricsSampleRateMillis_(DEFAULT_METRICS_SAMPLE_RATE),
+      configurationOptions(configurationOptions) {
 }
 
 void CollectorController::onTerminate() {
@@ -165,7 +164,7 @@ void CollectorController::onStart() {
     if (isOn() && state_ == SOCKET_CONNECTED) {
         onSocketConnect();
     } else if (state_ == PROMETHEUS_MODE) {
-        startProfiling(DEFAULT_PROMETHEUS_PROCESS_SAMPLE_RATE, DEFAULT_PROMETHEUS_ELAPSED_SAMPLE_RATE, true, true);
+        startProfiling(configurationOptions.prometheusProcessSampleRate, configurationOptions.prometheusElapsedSampleRate, true, true);
     }
 }
 

@@ -52,7 +52,7 @@ public:
         SignalHandler& signalHandler,
         DebugLogger& debugLogger,
         Metrics& metrics,
-        const bool prometheusEnabled);
+        const ConfigurationOptions& configurationOptions);
 
     // on determines whether the profiler is running at all or whether
     // it has been terminated. You can be on, but disconnected for example
@@ -208,6 +208,8 @@ private:
     bool metricsOn_;
 
     uint64_t metricsSampleRateMillis_;
+
+    const ConfigurationOptions& configurationOptions;
 
     void sendStashedNotifications();
 

@@ -91,6 +91,10 @@ const char* const DEFAULT_PORT = "50052";
 void assign_range(char* value, char* next, std::string& to);
 char *safe_copy_string(const char *value, const char *next);
 
+#define DEFAULT_PROMETHEUS_PROCESS_SAMPLE_RATE 100
+#define DEFAULT_PROMETHEUS_ELAPSED_SAMPLE_RATE 100
+
+
 struct ConfigurationOptions {
     std::string logFilePath;
     std::string host;
@@ -108,6 +112,8 @@ struct ConfigurationOptions {
     std::string prometheusHost;
     int prometheusPort;
     std::string prometheusSegment;
+    int prometheusProcessSampleRate;
+    int prometheusElapsedSampleRate;
 
     ConfigurationOptions() :
             logFilePath(""),
@@ -125,7 +131,9 @@ struct ConfigurationOptions {
             prometheusEnabled(false),
             prometheusHost(""),
             prometheusPort(0),
-            prometheusSegment("") {
+            prometheusSegment(""),
+            prometheusProcessSampleRate(DEFAULT_PROMETHEUS_PROCESS_SAMPLE_RATE),
+            prometheusElapsedSampleRate(DEFAULT_PROMETHEUS_ELAPSED_SAMPLE_RATE) {
     }
 
     ~ConfigurationOptions() {
