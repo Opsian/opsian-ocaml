@@ -164,7 +164,11 @@ void CollectorController::onStart() {
     if (isOn() && state_ == SOCKET_CONNECTED) {
         onSocketConnect();
     } else if (state_ == PROMETHEUS_MODE) {
-        startProfiling(configurationOptions.prometheusProcessSampleRate, configurationOptions.prometheusElapsedSampleRate, true, true);
+        startProfiling(
+            configurationOptions.prometheusProcessSampleRate,
+            configurationOptions.prometheusElapsedSampleRate,
+            true,
+            true);
     }
 }
 
