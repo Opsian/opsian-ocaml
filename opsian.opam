@@ -21,6 +21,9 @@ depexts: [
   [ "libtool" ] {os-distribution = "ubuntu" } # libunwind
   [ "liblzma-dev" ] {os-distribution = "ubuntu" }
 ]
-build: ["dune" "build" "--release" "-j" jobs ]
+build: [
+  [ "git" "submodule" "update" "--init" "--recursive" ]
+  ["dune" "build" "--release" "-j" jobs ]
+]
 dev-repo: "git://git@github.com/Opsian/opsian-ocaml.git"
 
