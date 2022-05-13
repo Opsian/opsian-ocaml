@@ -1,6 +1,6 @@
 opam-version: "2.0"
 name: "opsian"
-version: "~dev"
+version: "0.1"
 synopsis: "Low overhead profiling"
 maintainer: "Opsian <admin@opsian.com>"
 authors:
