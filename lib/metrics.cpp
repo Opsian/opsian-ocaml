@@ -46,8 +46,6 @@ void* callbackToRunMetrics(void* arg) {
         logError("ERROR: failed to set metrics thread signal mask\n");
     }
 
-    printf("threadId=%d\n", getTid());
-
     Metrics* metrics = (Metrics*) arg;
     metrics->run();
 
