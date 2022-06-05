@@ -202,35 +202,40 @@ bool bind_prometheus(const ConfigurationOptions& configuration, DebugLogger& deb
     rootCpuPrefix = prefix_1 + "cpu" + prefixEnd;
     rootWallclockPrefix = prefix_1 + "wallclock" + prefixEnd;
 
-    const int port = configuration.prometheusPort;
     const std::string& host = configuration.prometheusHost;
-
     debugLogger_ = &debugLogger;
     asio::io_service &ios = getIos();
-    try {
-        tcp::endpoint endpoint;
-        if (host.empty()) {
-            endpoint = tcp::endpoint(tcp::v4(), port);
-        } else {
-            boost::system::error_code ec;
-            if (ec.value() == 0) {
-                endpoint = tcp::endpoint(asio::ip::address::from_string(host, ec), port);
+
+    for (auto port : configuration.prometheusPorts) {
+        try {
+            tcp::endpoint endpoint;
+            if (host.empty()) {
+                endpoint = tcp::endpoint(tcp::v4(), port);
             } else {
-                Network::logNetError(ec, { "Prometheus IP address error" }, debugLogger);
-                return false;
+                boost::system::error_code ec;
+                if (ec.value() == 0) {
+                    endpoint = tcp::endpoint(asio::ip::address::from_string(host, ec), port);
+                } else {
+                    Network::logNetError(ec, { "Prometheus IP address error" }, debugLogger);
+                    return false;
+                }
             }
+            acceptor_ = new tcp::acceptor(ios, endpoint);
+            socket_ = new tcp::socket(ios);
+            do_accept();
+
+            debugLogger << "init_prometheus on " << host << ":" << port << endl;
+
+            return true;
+        } catch (boost::system::system_error& e) {
+            string portStr = std::to_string(port);
+            Network::logNetError(e.code(),
+                 { "Could not bind to port (", portStr.data(), "), attempting next port if configured" },
+                 debugLogger);
         }
-        acceptor_ = new tcp::acceptor(ios, endpoint);
-        socket_ = new tcp::socket(ios);
-        do_accept();
-
-        debugLogger << "init_prometheus on " << host << ":" << port << endl;
-
-        return true;
-    } catch (boost::system::system_error& e) {
-        Network::logNetError(e.code(), { "Prometheus bind error" }, debugLogger);
-        return false;
     }
+
+    return false;
 }
 
 // ----------------

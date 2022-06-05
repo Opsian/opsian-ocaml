@@ -5,6 +5,7 @@
 #include <signal.h>
 #include "caml/mlvalues.h"
 #include <time.h>
+#include <sstream>
 
 extern "C" CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str);
@@ -60,7 +61,14 @@ void parseArguments(char *options, ConfigurationOptions &configuration) {
                 char onPremHostValue = *value;
                 configuration.onPremHost = (onPremHostValue == 'y' || onPremHostValue == 'Y');
             } else if (strstr(key, "prometheusPort") == key) {
-                configuration.prometheusPort = atoi(value);
+                string allPorts;
+                assign_range(value, next, allPorts);
+
+                std::stringstream ports(allPorts);
+                string segment;
+                while(std::getline(ports, segment, '|')) {
+                    configuration.prometheusPorts.push_back(atoi(segment.c_str()));
+                }
             } else if (strstr(key, "prometheusHost") == key) {
                 assign_range(value, next, configuration.prometheusHost);
             } else if (strstr(key, "prometheusSegment") == key) {
@@ -210,7 +218,7 @@ CAMLprim void start_opsian_native(
 bool setup_configuration() {
     parseArguments(OPTIONS, *CONFIGURATION);
     substitute_options(CONFIGURATION);
-    CONFIGURATION->prometheusEnabled = CONFIGURATION->prometheusPort > 0;
+    CONFIGURATION->prometheusEnabled = !CONFIGURATION->prometheusPorts.empty();
 
     return true;
 }

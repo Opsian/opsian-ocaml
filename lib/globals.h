@@ -110,7 +110,7 @@ struct ConfigurationOptions {
     bool logCorruption;
     bool prometheusEnabled;
     std::string prometheusHost;
-    int prometheusPort;
+    std::vector<int> prometheusPorts;
     std::string prometheusSegment;
     int prometheusProcessSampleRate;
     int prometheusElapsedSampleRate;
@@ -130,7 +130,7 @@ struct ConfigurationOptions {
             logCorruption(false),
             prometheusEnabled(false),
             prometheusHost(""),
-            prometheusPort(0),
+            prometheusPorts(),
             prometheusSegment(""),
             prometheusProcessSampleRate(DEFAULT_PROMETHEUS_PROCESS_SAMPLE_RATE),
             prometheusElapsedSampleRate(DEFAULT_PROMETHEUS_ELAPSED_SAMPLE_RATE) {
