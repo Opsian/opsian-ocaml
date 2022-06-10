@@ -26,6 +26,7 @@ depexts: [
   # Alpine
 
   [ "libc-dev" ] {os-family = "alpine"}
+  [ "autoconf" ] {os-family = "alpine"}
   [ "automake" ] {os-family = "alpine"}
   [ "libtool" ] {os-family = "alpine"}
   ["xz-dev"] {os-family = "alpine"}
@@ -37,14 +38,12 @@ depexts: [
   # ["xz"] {os-family = "arch"}
 
   # Red Hat
-  
-  ["glibc-devel"] {os-famly = "fedora" | os-distribution = "rhel" | os-family = "centos"}
-  ["automake"] {os-famly = "fedora" | os-distribution = "rhel" | os-family = "centos"}
-  ["libtool"] {os-famly = "fedora" | os-distribution = "rhel" | os-family = "centos"}
-  ["xz-devel"] {os-famly = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+  ["glibc-devel"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+  ["automake"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+  ["libtool"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+  ["xz-devel"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"}
 
   # Suse
-
   ["glibc-devel"] {os-family = "suse" | os-family = "opensuse"}
   ["automake"] {os-family = "suse" | os-family = "opensuse"}
   ["libtool"] {os-family = "suse" | os-family = "opensuse"}
