@@ -25,11 +25,8 @@
 // Code is split out into a separate C file rather than C++ in order to work around Dune / Ocaml linking issue
 // between Ocaml internals and C++.
 
-// multicore sets OCAML_VERSION_ADDITIONAL "domains" and version of 4.14 - here we're just checking if the flag is set,
-// which is a hack but only a temporary one until multicore is merged into Ocaml 5.0 when we can do a comparison on
-// the version number
 #ifdef OCAML_VERSION_ADDITIONAL
-    #if OCAML_VERSION == 41400
+    #if OCAML_VERSION == 50000
         #define MULTICORE 1
     #endif
 #endif
