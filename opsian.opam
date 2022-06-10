@@ -18,12 +18,13 @@ depexts: [
   [ "libpthread-stubs0-dev" ] {os-distribution = "ubuntu" }
   [ "libc6-dev" ] {os-distribution = "ubuntu" } # -ldl -lrt
   [ "autoconf" ] {os-distribution = "ubuntu" }
+  [ "automake" ] {os-distribution = "ubuntu" }
   [ "libtool" ] {os-distribution = "ubuntu" } # libunwind
   [ "liblzma-dev" ] {os-distribution = "ubuntu" }
 ]
 build: [
-  [ "git" "submodule" "update" "--init" "--recursive" ]
   ["dune" "build" "--release" "-j" jobs ]
 ]
+available: arch != "arm32" & arch != "x86_32"
 dev-repo: "git://git@github.com/Opsian/opsian-ocaml.git"
 

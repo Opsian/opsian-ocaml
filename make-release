@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -eu
+
+export VERSION="$1"
+export DIR="opsian-ocaml-$VERSION"
+export TGZ="$VERSION.tar.gz"
+
+git tag -d "$VERSION"
+git push --delete origin "$VERSION"
+git tag -a "$VERSION" -m "$VERSION"
+git push origin "$VERSION"
+
+cd ..
+
+git clone --depth=1  "git@github.com:Opsian/opsian-ocaml.git" "$DIR"
+cd "$DIR"
+git submodule update --init --recursive  --depth=1
+cd ..
+
+rm "$TGZ"
+tar -czvf "$TGZ" "$DIR"
+
