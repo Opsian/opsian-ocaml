@@ -15,16 +15,45 @@ depends: [
 flags: [ verbose ]
 # for building native deps
 depexts: [
-  [ "libpthread-stubs0-dev" ] {os-distribution = "ubuntu" }
-  [ "libc6-dev" ] {os-distribution = "ubuntu" } # -ldl -lrt
-  [ "autoconf" ] {os-distribution = "ubuntu" }
-  [ "automake" ] {os-distribution = "ubuntu" }
-  [ "libtool" ] {os-distribution = "ubuntu" } # libunwind
-  [ "liblzma-dev" ] {os-distribution = "ubuntu" }
+
+  # Debian / Ubuntu
+  # [ "libpthread-stubs0-dev" ] { os-family = "debian" | os-family = "ubuntu" }
+  [ "libc-dev" ] { os-family = "debian" | os-family = "ubuntu" } # -ldl -lrt
+  [ "automake" ] { os-family = "debian" | os-family = "ubuntu" }
+  [ "libtool" ] { os-family = "debian" | os-family = "ubuntu" } # libunwind
+  [ "liblzma-dev" ] { os-family = "debian" | os-family = "ubuntu" }
+
+  # Alpine
+
+  [ "libc-dev" ] {os-family = "alpine"}
+  [ "automake" ] {os-family = "alpine"}
+  [ "libtool" ] {os-family = "alpine"}
+  ["xz-dev"] {os-family = "alpine"}
+
+  # Arch
+  # Currently not supported, needs investigating
+  # [ "automake" ] {os-family = "arch"}
+  # [ "libtool" ] {os-family = "arch"}
+  # ["xz"] {os-family = "arch"}
+
+  # Red Hat
+  
+  ["glibc-devel"] {os-famly = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+  ["automake"] {os-famly = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+  ["libtool"] {os-famly = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+  ["xz-devel"] {os-famly = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+
+  # Suse
+
+  ["glibc-devel"] {os-family = "suse" | os-family = "opensuse"}
+  ["automake"] {os-family = "suse" | os-family = "opensuse"}
+  ["libtool"] {os-family = "suse" | os-family = "opensuse"}
+  ["xz-devel"] {os-family = "suse" | os-family = "opensuse"}
+
 ]
 build: [
   ["dune" "build" "--release" "-j" jobs ]
 ]
-available: arch != "arm32" & arch != "x86_32"
+available: arch != "arm32" & arch != "x86_32" & os-family != "arch"
 dev-repo: "git://git@github.com/Opsian/opsian-ocaml.git"
 
