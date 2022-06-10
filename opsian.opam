@@ -54,6 +54,6 @@ depexts: [
 build: [
   ["dune" "build" "--release" "-j" jobs ]
 ]
-available: arch != "arm32" & arch != "x86_32" & os-family != "arch"
+available: arch != "arm32" & arch != "x86_32" & arch != "s390x" & os-family != "arch"
 dev-repo: "git://git@github.com/Opsian/opsian-ocaml.git"
 

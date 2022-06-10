@@ -22,6 +22,8 @@ int64_t _rdtsc() {
   asm volatile("mrs %0, cntvct_el0" : "=r"(virtual_timer_value));
   return virtual_timer_value;
 }
+#else
+int64_t _rdtsc() { return 0; }
 #endif
 
 Profiler::Profiler(
