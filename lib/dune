@@ -51,7 +51,6 @@
    (progn
     (chdir deps/protobuf (progn
      (run chmod +w src/google/protobuf/compiler/js/well_known_types_embed.cc)
-     (run touch aclocal.m4 configure Makefile.am Makefile.in)
      (run ./configure "CFLAGS=-fPIC" "CXXFLAGS=-fPIC" --disable-shared DIST_LANG=cpp)
      (run make -s -j6)))
     (copy deps/protobuf/src/protoc protoc)
