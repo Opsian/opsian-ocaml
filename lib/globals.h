@@ -68,11 +68,6 @@ const char* const DEFAULT_PORT = "50052";
 #	include <atomic>
 #endif
 
-// If we're on an old g++ then use their internal pre-standardised nullptr implementation.
-#if !defined(nullptr)
-#	define nullptr NULL
-#endif
-
 #include <vector>
 #include <mutex>
 #include <iostream>
