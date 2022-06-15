@@ -54,6 +54,6 @@ build: [
   ["dune" "build" "--release" "-j" jobs ]
 ]
 # we do actually support multicore Ocaml, but only the 5.0 mainline version not the opam CI version
-available: arch != "arm32" & arch != "x86_32" & arch != "s390x" & os-family != "arch" & os-family != "alpine" & ocaml-version != "4.12.0+domains" & ocaml-version != "4.12.0+domains+effects"
+available: arch != "arm32" & arch != "x86_32" & arch != "s390x" & os-family != "arch" & os-family != "alpine" & ocaml != "4.12.0+domains" & ocaml != "4.12.0+domains+effects"
 dev-repo: "git://git@github.com/Opsian/opsian-ocaml.git"
 
