@@ -22,9 +22,9 @@ depexts: [
   [ "automake" ] { os-family = "debian" | os-family = "ubuntu" }
   [ "libtool" ] { os-family = "debian" | os-family = "ubuntu" } # libunwind
   [ "liblzma-dev" ] { os-family = "debian" | os-family = "ubuntu" }
+  [ "perl" ] { os-family = "debian" | os-family = "ubuntu" } # New openssl requires this
 
   # Alpine
-
   [ "libc-dev" ] {os-family = "alpine"}
   [ "autoconf" ] {os-family = "alpine"}
   [ "automake" ] {os-family = "alpine"}
@@ -33,21 +33,23 @@ depexts: [
 
   # Arch
   # Currently not supported, needs investigating
-  # [ "automake" ] {os-family = "arch"}
-  # [ "libtool" ] {os-family = "arch"}
-  # ["xz"] {os-family = "arch"}
+  [ "automake" ] {os-family = "arch"}
+  [ "libtool" ] {os-family = "arch"}
+  ["xz"] {os-family = "arch"}
 
   # Red Hat
   ["glibc-devel"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"}
   ["automake"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"}
   ["libtool"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"}
   ["xz-devel"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"}
+  ["perl-core"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"} # New openssl requires this
 
   # Suse
   ["glibc-devel"] {os-family = "suse" | os-family = "opensuse"}
   ["automake"] {os-family = "suse" | os-family = "opensuse"}
   ["libtool"] {os-family = "suse" | os-family = "opensuse"}
   ["xz-devel"] {os-family = "suse" | os-family = "opensuse"}
+  ["perl-core"] {os-family = "fedora" | os-distribution = "rhel" | os-family = "centos"} # New openssl requires this
 
 ]
 build: [
