@@ -5,6 +5,9 @@
 #include "proc_scanner.h"
 
 extern "C" {
+
+// Terribly hack
+#define _Atomic 
 #include "caml/misc.h"
 #include <caml/threads.h>
 }
@@ -14,6 +17,9 @@ const int MAX_POLLS = 10;
 const uint64_t MIN_SLEEP_IN_MS = 2;
 const uint64_t MAX_SLEEP_IN_MS = 200;
 
+std::atomic_bool processorRunning{};
+pthread_t processorThread = 0;
+
 void Processor::run() {
     on_processor_thread_start();
 
@@ -22,7 +28,7 @@ void Processor::run() {
     uint64_t sleepDurationInMs = MIN_SLEEP_IN_MS;
 
     // Want to check isRunning after every sleep_ms
-    while (collectorController_.isOn()) {
+    while (collectorController_.isOn() && processorRunning) {
         bool doneWork = collectorController_.poll();
         // poll() can sleep_ms as part of a reconnect backoff
 
@@ -35,7 +41,7 @@ void Processor::run() {
             doneWork |= (i > 0);
         }
 
-        if (!doneWork) {
+        if (!doneWork && processorRunning) {
             sleep_ms(sleepDurationInMs);
             sleepDurationInMs = std::min(MAX_SLEEP_IN_MS, sleepDurationInMs * 2);
         } else {
@@ -72,17 +78,29 @@ void* callbackToRunProcessor(void *arg) {
     return nullptr;
 }
 
+void onProcessorExit() {
+    processorRunning = false;
+
+    int result = pthread_join(processorThread, nullptr);
+    if (result) {
+        logError("ERROR: failed to join processor thread %d\n", result);
+    }
+}
+
 void Processor::start() {
     debugLogger_ << "Starting Processor Thread" << endl;
 
-    int result = pthread_create(&thread, nullptr, &callbackToRunProcessor, this);
+    atexit(onProcessorExit);
+
+    processorRunning = true;
+    int result = pthread_create(&processorThread, nullptr, &callbackToRunProcessor, this);
     if (result) {
         logError("ERROR: failed to start processor thread %d\n", result);
     }
 
-    pthread_setname_np(thread, PROCESSOR_THREAD_NAME);
+    pthread_setname_np(processorThread, PROCESSOR_THREAD_NAME);
 }
 
 void Processor::on_fork() {
-    thread = 0;
+    processorThread = 0;
 }

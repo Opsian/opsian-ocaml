@@ -13,6 +13,10 @@ static const uint32_t DURATION_ID = 1;
 static const uint32_t NANOS_IN_SECOND = 1000000000;
 static const uint64_t MAX_SLEEP_IN_MS = 200;
 
+
+std::atomic_bool running{};
+pthread_t thread{};
+
 static const MetricInformation DURATION_INFO{
     DURATION_NAME,
     DURATION_ID,
@@ -52,12 +56,24 @@ void* callbackToRunMetrics(void* arg) {
     return nullptr;
 }
 
+void onMetricsExit() {
+    running = false;
+
+    int result = pthread_join(thread, nullptr);
+    if (result) {
+        logError("ERROR: failed to join metrics thread %d\n", result);
+    }
+}
+
 void Metrics::startThread() {
     debugLogger_ << "Starting metrics thread" << endl;
 
+    atexit(onMetricsExit);
+
+    running = true;
     int result = pthread_create(&thread, nullptr, &callbackToRunMetrics, this);
     if (result) {
-        logError("ERROR: failed to start processor thread %d\n", result);
+        logError("ERROR: failed to start metrics thread %d\n", result);
     }
 
     pthread_setname_np(thread, METRICS_THREAD_NAME);
@@ -230,7 +246,7 @@ void Metrics::run() {
         timespec startWork {0};
         timespec endWork {0};
 
-        while (true) {
+        while (running) {
             // First do all the necessary work on the duty cycle
             clock_gettime(CLOCK_REALTIME, &startWork);
             const long startWorkInMs = toMillis(startWork);
@@ -294,7 +310,7 @@ void Metrics::run() {
 
                 // Sleep for any remaining time on the duty cycle
 //                printf("remaining sleep in ms=%lu\n", remainingWindowInMs);
-                if (remainingWindowInMs > 0) {
+                if (remainingWindowInMs > 0 && running) {
                     sleep_ms(remainingWindowInMs);
                 }
             }

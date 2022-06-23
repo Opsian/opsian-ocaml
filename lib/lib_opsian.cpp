@@ -3,12 +3,18 @@
 #include "profiler.h"
 #include <execinfo.h>
 #include <signal.h>
-#include "caml/mlvalues.h"
 #include <time.h>
 #include <sstream>
 
-extern "C" CAMLprim void start_opsian_native(
+extern "C" {
+
+#define _Atomic 
+
+#include "caml/mlvalues.h"
+
+  CAMLprim void start_opsian_native(
     value ocaml_version_str, value ocaml_executable_name_str, value ocaml_argv0_str);
+}
 
 static char* OCAML_EXE_NAME;
 static size_t OCAML_EXE_NAME_LEN;

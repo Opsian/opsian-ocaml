@@ -27,7 +27,6 @@ public:
     explicit Metrics(DebugLogger& debugLogger, CircularQueue& queue)
     : debugLogger_(debugLogger),
       queue_(queue),
-      thread(),
       mustSendDurationMetric(false),
       enabled_(false),
       sampleRateMillis_(DEFAULT_METRICS_SAMPLE_RATE_MILLIS),
@@ -54,7 +53,6 @@ public:
 private:
     DebugLogger& debugLogger_;
     CircularQueue& queue_;
-    pthread_t thread;
     std::atomic_bool mustSendDurationMetric;
     bool enabled_;
     std::atomic<uint64_t> sampleRateMillis_;

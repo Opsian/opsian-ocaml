@@ -10,6 +10,7 @@
 #include <time.h>
 #include <fstream>
 #include "linkable_profiler.h"
+#include <atomic>
 
 extern "C" int linkable_handle(CallFrame* frames, ErrorHolder* errorHolder);
 

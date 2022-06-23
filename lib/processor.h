@@ -17,8 +17,7 @@ public:
         Network& network,
         CollectorController& collectorController,
         DebugLogger& debugLogger)
-        : thread(0),
-          queueListener_(queueListener),
+        : queueListener_(queueListener),
           buffer_(buffer),
           network_(network),
           collectorController_(collectorController),
@@ -32,8 +31,6 @@ public:
     void on_fork();
 
 private:
-
-    pthread_t thread;
 
     QueueListener& queueListener_;
 
