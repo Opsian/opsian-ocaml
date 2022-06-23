@@ -21,3 +21,6 @@ cd ..
 rm "$TGZ"
 tar -czvf "$TGZ" "$DIR"
 
+gh release upload "$VERSION" "$TGZ" --clobber
+
+
