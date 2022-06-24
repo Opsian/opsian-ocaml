@@ -122,8 +122,9 @@
 
 (library
  (name opsian)
- (public_name opsian)
- (libraries threads runtime_events)
+ (libraries threads (select events.cpp from
+  (runtime_events -> events.enabled.cpp)
+  (-> events.disabled.cpp)))
  (library_flags -linkall)
  (foreign_stubs
   (language c)
@@ -151,6 +152,7 @@
     prometheus_exporter
     concurrent_map
     cpudata_reader
+    events
     event_ring_reader
     data.pb
     debug_logger
@@ -234,3 +236,4 @@
     -lrt
     -lstdc++
     -llzma)))
+
