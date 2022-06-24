@@ -14,10 +14,7 @@ static std::atomic_bool calledStart_(false);
 extern "C" {
     #define CAML_NAME_SPACE
 
-    // Allow us to import misc.h by providing a definition for _Atomic
-    // This isn't safe if we access any of the fields that use _Atomic directly, but we don't
-    #define _Atomic
-    #include <caml/misc.h> // CamlExtern
+    #include "misc.h"
 
     #include <caml/threads.h> // runtime lock
     #include <caml/mlvalues.h> // Caml_state

@@ -13,9 +13,12 @@ static const uint32_t DURATION_ID = 1;
 static const uint32_t NANOS_IN_SECOND = 1000000000;
 static const uint64_t MAX_SLEEP_IN_MS = 200;
 
-
 std::atomic_bool running{};
 pthread_t thread{};
+
+bool metrics_thread_running() {
+    return running;
+}
 
 static const MetricInformation DURATION_INFO{
     DURATION_NAME,

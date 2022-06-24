@@ -21,6 +21,8 @@ static const char *const METRICS_THREAD_NAME = "Opsian Metrics";
 
 static const int DEFAULT_METRICS_SAMPLE_RATE_MILLIS = 1000;
 
+bool metrics_thread_running();
+
 // Any change on default initialization values should be replicated in Metrics.on_fork()
 class Metrics {
 public:

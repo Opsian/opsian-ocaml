@@ -6,9 +6,7 @@
 
 extern "C" {
 
-// Terribly hack
-#define _Atomic 
-#include "caml/misc.h"
+#include "misc.h"
 #include <caml/threads.h>
 }
 
@@ -70,11 +68,6 @@ void* callbackToRunProcessor(void *arg) {
     Processor *processor = (Processor *) arg;
     processor->run();
 
-    res = caml_c_thread_unregister();
-    if (res != 1) {
-        logError("Unable to unregister metrics thread with ocaml");
-    }
-
     return nullptr;
 }
 
@@ -90,9 +83,9 @@ void onProcessorExit() {
 void Processor::start() {
     debugLogger_ << "Starting Processor Thread" << endl;
 
+    processorRunning = true;
     atexit(onProcessorExit);
 
-    processorRunning = true;
     int result = pthread_create(&processorThread, nullptr, &callbackToRunProcessor, this);
     if (result) {
         logError("ERROR: failed to start processor thread %d\n", result);

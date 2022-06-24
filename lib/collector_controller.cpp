@@ -238,7 +238,11 @@ void CollectorController::onDisconnect() {
     agentStatisticsTimer_->cancel();
 
     if (metricsOn_) {
-      metrics_.disable();
+      // Check the thread is running to avoid deadlock in the case that we're terminating and blocking the
+      // main thread that owns the ocaml masterlock
+      if (metrics_thread_running()) {
+          metrics_.disable();
+      }
       metricsOn_ = false;
     }
 
