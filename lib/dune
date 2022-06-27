@@ -50,8 +50,8 @@
   (no-infer
    (progn
     (chdir deps/protobuf (progn
-     (run chmod +w src/google/protobuf/compiler/js/well_known_types_embed.cc)
-     (run chmod a+w configure gmock/configure gmock/gtest/configure)
+     (run chmod -R a+w .)
+     (run autoreconf -isfv)
      (run ./configure "CFLAGS=-fPIC" "CXXFLAGS=-fPIC" --disable-shared DIST_LANG=cpp)
      (run make -s -j6)))
     (copy deps/protobuf/src/protoc protoc)
