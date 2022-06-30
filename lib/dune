@@ -122,6 +122,7 @@
 
 (library
  (name opsian)
+ (public_name opsian)
  (libraries threads (select events.cpp from
   (runtime_events -> events.enabled.cpp)
   (-> events.disabled.cpp)))
